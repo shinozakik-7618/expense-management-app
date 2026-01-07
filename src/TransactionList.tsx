@@ -75,19 +75,35 @@ export default function TransactionList() {
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>取引一覧</h1>
-        <button 
-          onClick={() => navigate('/dashboard')}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          ダッシュボードに戻る
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => navigate('/transactions/create')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            + 新規登録
+          </button>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            ダッシュボードに戻る
+          </button>
+        </div>
       </div>
 
       <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
@@ -98,6 +114,7 @@ export default function TransactionList() {
               <th style={{ padding: '12px', textAlign: 'left' }}>加盟店名</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>金額</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>ステータス</th>
+              <th style={{ padding: '12px', textAlign: 'center' }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -112,6 +129,22 @@ export default function TransactionList() {
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
                   {getStatusBadge(transaction.status)}
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
+                  <button
+                    onClick={() => navigate(`/transactions/${transaction.id}`)}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#17a2b8',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    詳細
+                  </button>
                 </td>
               </tr>
             ))}

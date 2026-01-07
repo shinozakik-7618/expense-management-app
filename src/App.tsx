@@ -5,6 +5,8 @@ import { auth } from './firebase';
 import Login from './Login';
 import Dashboard from './Dashboard';
 import TransactionList from './TransactionList';
+import TransactionCreate from './TransactionCreate';
+import TransactionDetail from './TransactionDetail';
 import CategoryManagement from './CategoryManagement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,6 +46,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <TransactionList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions/create"
+          element={
+            <ProtectedRoute>
+              <TransactionCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions/:id"
+          element={
+            <ProtectedRoute>
+              <TransactionDetail />
             </ProtectedRoute>
           }
         />

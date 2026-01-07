@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from './firebase';
 
 interface Category {
   id: string;
@@ -18,7 +19,11 @@ export default function TransactionCreate() {
     categoryId: '',
     memo: ''
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadCategories();
@@ -38,6 +43,40 @@ export default function TransactionCreate() {
     }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    
+    if (selectedFiles.length === 0) return;
+
+    // すべてのファイルを受け入れる（HEIC含む）
+    setFiles(prev => [...prev, ...selectedFiles]);
+
+    // プレビュー生成
+    for (const file of selectedFiles) {
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviews(prev => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('プレビュー生成エラー:', error);
+        // エラーでもファイルは追加する
+        setPreviews(prev => [...prev, '']);
+      }
+    }
+
+    // input をリセット
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -55,7 +94,8 @@ export default function TransactionCreate() {
         return;
       }
 
-      await addDoc(collection(db, 'transactions'), {
+      // 取引データを登録
+      const transactionRef = await addDoc(collection(db, 'transactions'), {
         userId: user.uid,
         organizationId: 'org001',
         transactionDate: Timestamp.fromDate(new Date(formData.transactionDate)),
@@ -65,10 +105,33 @@ export default function TransactionCreate() {
         memo: formData.memo,
         status: 'pending',
         approvalRoute: 'regional',
-        receiptCount: 0,
+        receiptCount: files.length,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
+
+      // 画像をアップロード
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const timestamp = Date.now();
+        const fileName = `${timestamp}_${i}_${file.name}`;
+        const storagePath = `receipts/${transactionRef.id}/${fileName}`;
+        const storageRef = ref(storage, storagePath);
+
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+
+        // 証憑データを登録
+        await addDoc(collection(db, 'receipts'), {
+          transactionId: transactionRef.id,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          storagePath: storagePath,
+          downloadURL: downloadURL,
+          uploadedAt: Timestamp.now()
+        });
+      }
 
       alert('取引を登録しました');
       navigate('/transactions');
@@ -127,7 +190,7 @@ export default function TransactionCreate() {
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            金額（円） <span style={{ color: 'red' }}>*</span>
+            金額（税込・円） <span style={{ color: 'red' }}>*</span>
           </label>
           <input
             type="number"
@@ -211,6 +274,134 @@ export default function TransactionCreate() {
             }}
           />
         </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+            証憑画像
+          </label>
+          
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+            >
+              📷 写真を撮る
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                flex: 1,
+                padding: '12px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+            >
+              📁 ファイル選択
+            </button>
+          </div>
+
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            ※ iPhone/iPad で撮影する場合は「📷 写真を撮る」をタップしてください<br/>
+            ※ カメラ機能はスマートフォン・タブレットでのみ動作します
+          </div>
+        </div>
+
+        {previews.length > 0 && (
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+              選択中のファイル（{files.length}件）
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+              {files.map((file, index) => (
+                <div key={index} style={{ position: 'relative', border: '1px solid #ddd', borderRadius: '4px', padding: '10px' }}>
+                  {previews[index] ? (
+                    <img 
+                      src={previews[index]} 
+                      alt={file.name}
+                      style={{ 
+                        width: '100%', 
+                        height: '150px', 
+                        objectFit: 'cover', 
+                        borderRadius: '4px',
+                        marginBottom: '5px'
+                      }} 
+                    />
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      height: '150px',
+                      backgroundColor: '#f0f0f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px',
+                      marginBottom: '5px',
+                      fontSize: '40px'
+                    }}>
+                      📷
+                    </div>
+                  )}
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '5px', wordBreak: 'break-all' }}>
+                    {file.name}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"

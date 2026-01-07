@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 interface Transaction {
@@ -10,6 +10,7 @@ interface Transaction {
   merchantName: string;
   status: string;
   memo?: string;
+  receiptCount: number;
 }
 
 export default function TransactionList() {
@@ -40,16 +41,29 @@ export default function TransactionList() {
     }
   };
 
+  const handleDelete = async (id: string, merchantName: string) => {
+    if (!window.confirm(`「${merchantName}」の取引を削除しますか？\n※この操作は取り消せません`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+      alert('取引を削除しました');
+      loadTransactions();
+    } catch (error) {
+      console.error('削除に失敗:', error);
+      alert('削除に失敗しました');
+    }
+  };
+
   const handleExportCSV = () => {
     if (transactions.length === 0) {
       alert('エクスポートするデータがありません');
       return;
     }
 
-    // CSVヘッダー
-    const headers = ['取引日', '加盟店名', '金額', 'ステータス', 'メモ'];
+    const headers = ['取引日', '加盟店名', '金額（税込・円）', 'ステータス', '証憑件数', 'メモ'];
     
-    // CSVデータ
     const rows = transactions.map((t) => {
       const date = t.transactionDate?.toDate?.()?.toLocaleDateString('ja-JP') || '';
       const statusText = {
@@ -64,17 +78,16 @@ export default function TransactionList() {
         t.merchantName,
         t.amount,
         statusText,
+        t.receiptCount || 0,
         t.memo || ''
       ];
     });
 
-    // CSV文字列作成
     const csvContent = [
       headers.join(','),
       ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
     ].join('\n');
 
-    // BOM付きUTF-8でダウンロード
     const bom = '\uFEFF';
     const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -176,7 +189,8 @@ export default function TransactionList() {
             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
               <th style={{ padding: '12px', textAlign: 'left' }}>取引日</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>加盟店名</th>
-              <th style={{ padding: '12px', textAlign: 'right' }}>金額</th>
+              <th style={{ padding: '12px', textAlign: 'right' }}>金額（税込・円）</th>
+              <th style={{ padding: '12px', textAlign: 'center' }}>証憑</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>ステータス</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>操作</th>
             </tr>
@@ -192,23 +206,69 @@ export default function TransactionList() {
                   ¥{transaction.amount.toLocaleString()}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
+                  {transaction.receiptCount > 0 ? (
+                    <span style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#d1ecf1',
+                      color: '#0c5460',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      📎 {transaction.receiptCount}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#999', fontSize: '12px' }}>-</span>
+                  )}
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
                   {getStatusBadge(transaction.status)}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
-                  <button
-                    onClick={() => navigate(`/transactions/${transaction.id}`)}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#17a2b8',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    詳細
-                  </button>
+                  <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => navigate(`/transactions/${transaction.id}`)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#17a2b8',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      詳細
+                    </button>
+                    <button
+                      onClick={() => navigate(`/transactions/${transaction.id}/edit`)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#ffc107',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      編集
+                    </button>
+                    <button
+                      onClick={() => handleDelete(transaction.id, transaction.merchantName)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

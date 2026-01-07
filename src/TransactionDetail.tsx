@@ -1,7 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { doc, getDoc, updateDoc, Timestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from './firebase';
 
 interface Transaction {
   id: string;
@@ -11,17 +12,29 @@ interface Transaction {
   categoryId?: string;
   memo?: string;
   status: string;
+  receiptCount: number;
+}
+
+interface Receipt {
+  id: string;
+  fileName: string;
+  downloadURL: string;
+  storagePath: string;
+  fileSize: number;
 }
 
 export default function TransactionDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       loadTransaction(id);
+      loadReceipts(id);
     }
   }, [id]);
 
@@ -42,6 +55,51 @@ export default function TransactionDetail() {
       alert('取引の取得に失敗しました');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadReceipts = async (transactionId: string) => {
+    try {
+      const q = query(collection(db, 'receipts'), where('transactionId', '==', transactionId));
+      const snapshot = await getDocs(q);
+      
+      const data: Receipt[] = [];
+      snapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() } as Receipt);
+      });
+      
+      setReceipts(data);
+    } catch (error) {
+      console.error('証憑の取得に失敗:', error);
+    }
+  };
+
+  const handleDeleteReceipt = async (receipt: Receipt) => {
+    if (!window.confirm('この証憑を削除しますか？')) return;
+
+    try {
+      // Storageから削除
+      const storageRef = ref(storage, receipt.storagePath);
+      await deleteObject(storageRef);
+
+      // Firestoreから削除
+      await deleteDoc(doc(db, 'receipts', receipt.id));
+
+      // 取引のreceiptCountを更新
+      if (id) {
+        const transactionRef = doc(db, 'transactions', id);
+        await updateDoc(transactionRef, {
+          receiptCount: receipts.length - 1,
+          updatedAt: Timestamp.now()
+        });
+      }
+
+      alert('証憑を削除しました');
+      loadReceipts(id!);
+      loadTransaction(id!);
+    } catch (error) {
+      console.error('証憑の削除に失敗:', error);
+      alert('証憑の削除に失敗しました');
     }
   };
 
@@ -185,6 +243,56 @@ export default function TransactionDetail() {
           </div>
         </div>
 
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '10px', color: '#666', fontSize: '14px' }}>
+            証憑画像（{receipts.length}件）
+          </label>
+          {receipts.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+              {receipts.map((receipt) => (
+                <div key={receipt.id} style={{ position: 'relative' }}>
+                  <img 
+                    src={receipt.downloadURL} 
+                    alt={receipt.fileName}
+                    onClick={() => setSelectedImage(receipt.downloadURL)}
+                    style={{ 
+                      width: '100%', 
+                      height: '150px', 
+                      objectFit: 'cover', 
+                      borderRadius: '4px',
+                      border: '1px solid #ddd',
+                      cursor: 'pointer'
+                    }} 
+                  />
+                  <button
+                    onClick={() => handleDeleteReceipt(receipt)}
+                    style={{
+                      position: 'absolute',
+                      top: '5px',
+                      right: '5px',
+                      backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      lineHeight: '1'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#666', fontSize: '14px' }}>
+              証憑画像がありません
+            </div>
+          )}
+        </div>
+
         {transaction.status === 'pending' && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
             <button
@@ -222,6 +330,36 @@ export default function TransactionDetail() {
           </div>
         )}
       </div>
+
+      {/* 画像拡大モーダル */}
+      {selectedImage && (
+        <div 
+          onClick={() => setSelectedImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            cursor: 'pointer'
+          }}
+        >
+          <img 
+            src={selectedImage} 
+            alt="拡大表示"
+            style={{ 
+              maxWidth: '90%', 
+              maxHeight: '90%',
+              objectFit: 'contain'
+            }} 
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Login from './Login';
 import Dashboard from './Dashboard';
 import TransactionList from './TransactionList';
 import TransactionCreate from './TransactionCreate';
+import TransactionEdit from './TransactionEdit';
 import TransactionDetail from './TransactionDetail';
 import CategoryManagement from './CategoryManagement';
 import UserManagement from './UserManagement';
@@ -55,6 +56,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <TransactionCreate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions/:id/edit"
+          element={
+            <ProtectedRoute>
+              <TransactionEdit />
             </ProtectedRoute>
           }
         />

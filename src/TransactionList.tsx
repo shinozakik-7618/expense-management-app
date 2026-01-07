@@ -9,6 +9,7 @@ interface Transaction {
   amount: number;
   merchantName: string;
   status: string;
+  memo?: string;
 }
 
 export default function TransactionList() {
@@ -37,6 +38,54 @@ export default function TransactionList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (transactions.length === 0) {
+      alert('エクスポートするデータがありません');
+      return;
+    }
+
+    // CSVヘッダー
+    const headers = ['取引日', '加盟店名', '金額', 'ステータス', 'メモ'];
+    
+    // CSVデータ
+    const rows = transactions.map((t) => {
+      const date = t.transactionDate?.toDate?.()?.toLocaleDateString('ja-JP') || '';
+      const statusText = {
+        pending: '未処理',
+        submitted: '申請中',
+        rejected: '差戻し',
+        approved: '承認済'
+      }[t.status] || t.status;
+      
+      return [
+        date,
+        t.merchantName,
+        t.amount,
+        statusText,
+        t.memo || ''
+      ];
+    });
+
+    // CSV文字列作成
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // BOM付きUTF-8でダウンロード
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `取引一覧_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    alert('CSVファイルをダウンロードしました');
   };
 
   const getStatusBadge = (status: string) => {
@@ -76,6 +125,21 @@ export default function TransactionList() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>取引一覧</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={handleExportCSV}
+            disabled={transactions.length === 0}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: transactions.length === 0 ? '#ccc' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: transactions.length === 0 ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            📊 CSV出力
+          </button>
           <button 
             onClick={() => navigate('/transactions/create')}
             style={{

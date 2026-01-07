@@ -8,6 +8,7 @@ import TransactionList from './TransactionList';
 import TransactionCreate from './TransactionCreate';
 import TransactionDetail from './TransactionDetail';
 import CategoryManagement from './CategoryManagement';
+import UserManagement from './UserManagement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
@@ -70,6 +71,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <CategoryManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <UserManagement />
             </ProtectedRoute>
           }
         />

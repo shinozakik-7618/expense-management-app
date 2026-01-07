@@ -177,6 +177,21 @@ export default function Dashboard() {
         >
           用途マスタ管理
         </button>
+
+        <button 
+          onClick={() => navigate('/users')}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#6f42c1',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          ユーザー管理
+        </button>
       </div>
     </div>
   );

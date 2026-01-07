@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from './firebase';
+import { signOut } from 'firebase/auth';
 
 interface User {
   id: string;
   email: string;
   displayName: string;
   role: string;
+  organizationId: string;
   status: string;
   createdAt: any;
 }
@@ -20,7 +21,6 @@ export default function UserManagement() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     displayName: '',
     role: 'user'
   });
@@ -31,18 +31,16 @@ export default function UserManagement() {
 
   const loadUsers = async () => {
     try {
-      setLoading(true);
       const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
-      
-      const data: User[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() } as User);
-      });
-      
-      setUsers(data);
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as User));
+      setUsers(usersData);
     } catch (error) {
       console.error('ユーザーの取得に失敗:', error);
+      alert('ユーザーの取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -51,128 +49,116 @@ export default function UserManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password || !formData.displayName) {
-      alert('全ての項目を入力してください');
+    if (!formData.email || !formData.displayName) {
+      alert('メールアドレスと表示名を入力してください');
       return;
     }
-
-    // 現在のユーザー情報を保存
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      alert('ログインしてください');
-      return;
-    }
-    const currentEmail = currentUser.email;
 
     try {
-      // 新規ユーザー作成
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
+      setLoading(true);
 
-      // Firestoreにユーザー情報を保存
+      // Firestoreに仮ユーザーとして登録（初回ログイン時にAuthenticationに登録）
       await addDoc(collection(db, 'users'), {
-        uid: userCredential.user.uid,
         email: formData.email,
         displayName: formData.displayName,
         role: formData.role,
         organizationId: 'org001',
         organizationType: 'regional',
-        cardNumber: '',
-        status: 'active',
+        status: 'pending',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
 
-      // 元のユーザーに再ログイン
-      // 注意: パスワードの再入力が必要です
-      const password = prompt('管理者アカウントに戻るため、あなたのパスワードを入力してください：');
-      if (password && currentEmail) {
-        await signInWithEmailAndPassword(auth, currentEmail, password);
-        alert('ユーザーを追加しました');
-        setShowForm(false);
-        setFormData({ email: '', password: '', displayName: '', role: 'user' });
-        loadUsers();
-      } else {
-        alert('ユーザーは追加されましたが、ログアウトされました。再度ログインしてください。');
-        navigate('/');
-      }
-    } catch (error: any) {
-      console.error('ユーザーの追加に失敗:', error);
-      if (error.code === 'auth/email-already-in-use') {
-        alert('このメールアドレスは既に使用されています');
-      } else if (error.code === 'auth/wrong-password') {
-        alert('パスワードが間違っています。ログアウトされました。');
-        navigate('/');
-      } else {
-        alert('ユーザーの追加に失敗しました');
-      }
+      alert(`ユーザーを登録しました\n\nメール: ${formData.email}\n\n※ユーザーに初回ログイン用の案内を送信してください`);
+      setFormData({ email: '', displayName: '', role: 'user' });
+      setShowForm(false);
+      loadUsers();
+    } catch (error) {
+      console.error('ユーザーの登録に失敗:', error);
+      alert('ユーザーの登録に失敗しました');
+    } finally {
+      setLoading(false);
     }
   };
 
   const getRoleBadge = (role: string) => {
-    const styles: Record<string, { bg: string; color: string; text: string }> = {
-      admin: { bg: '#dc3545', color: 'white', text: '管理者' },
-      cfo: { bg: '#6f42c1', color: 'white', text: 'CFO' },
-      department_head: { bg: '#fd7e14', color: 'white', text: '本部長' },
-      regional_manager: { bg: '#20c997', color: 'white', text: '地域管理者' },
-      user: { bg: '#6c757d', color: 'white', text: '一般' }
+    const badges: { [key: string]: { text: string; color: string } } = {
+      admin: { text: '管理者', color: '#dc3545' },
+      cfo: { text: 'CFO', color: '#6f42c1' },
+      department_head: { text: '本部長', color: '#fd7e14' },
+      regional_manager: { text: '地域マネージャー', color: '#0dcaf0' },
+      user: { text: '一般ユーザー', color: '#6c757d' }
     };
-    
-    const style = styles[role] || styles.user;
-    
+    const badge = badges[role] || badges.user;
     return (
       <span style={{
         padding: '4px 12px',
         borderRadius: '12px',
         fontSize: '12px',
         fontWeight: 'bold',
-        backgroundColor: style.bg,
-        color: style.color
+        backgroundColor: badge.color,
+        color: 'white'
       }}>
-        {style.text}
+        {badge.text}
       </span>
     );
   };
 
-  if (loading) {
+  const getStatusBadge = (status: string) => {
+    const badges: { [key: string]: { text: string; color: string } } = {
+      active: { text: '有効', color: '#198754' },
+      pending: { text: '初回ログイン待ち', color: '#ffc107' },
+      inactive: { text: '無効', color: '#6c757d' }
+    };
+    const badge = badges[status] || badges.pending;
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>読み込み中...</p>
-      </div>
+      <span style={{
+        padding: '4px 12px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        backgroundColor: badge.color,
+        color: status === 'pending' ? '#000' : 'white'
+      }}>
+        {badge.text}
+      </span>
     );
+  };
+
+  if (loading && users.length === 0) {
+    return <div style={{ padding: '40px', textAlign: 'center' }}>読み込み中...</div>;
   }
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>ユーザー管理</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>ユーザー管理</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
+          <button
             onClick={() => setShowForm(!showForm)}
             style={{
-              padding: '8px 16px',
-              backgroundColor: showForm ? '#6c757d' : '#007bff',
+              padding: '10px 20px',
+              backgroundColor: '#0d6efd',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '6px',
               cursor: 'pointer',
+              fontSize: '14px',
               fontWeight: 'bold'
             }}
           >
             {showForm ? 'キャンセル' : '+ ユーザー追加'}
           </button>
-          <button 
+          <button
             onClick={() => navigate('/dashboard')}
             style={{
-              padding: '8px 16px',
+              padding: '10px 20px',
               backgroundColor: '#6c757d',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px'
             }}
           >
             ダッシュボードに戻る
@@ -181,166 +167,137 @@ export default function UserManagement() {
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{
-          backgroundColor: 'white',
+        <div style={{
+          backgroundColor: '#f8f9fa',
           padding: '20px',
           borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
+          marginBottom: '30px',
+          border: '1px solid #dee2e6'
         }}>
-          <h3 style={{ marginTop: 0 }}>新規ユーザー追加</h3>
-          
-          <div style={{ padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', marginBottom: '15px', fontSize: '14px' }}>
-            ⚠️ ユーザー追加後、あなたのパスワードを再入力してログインを維持します
-          </div>
+          <h2 style={{ fontSize: '20px', marginBottom: '20px', color: '#333' }}>新規ユーザー追加</h2>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
+                メールアドレス *
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '14px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              メールアドレス <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '14px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
+                表示名 *
+              </label>
+              <input
+                type="text"
+                value={formData.displayName}
+                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '14px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              パスワード <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              minLength={6}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '14px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
+                権限
+              </label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '14px',
+                  border: '1px solid #ced4da',
+                  borderRadius: '4px'
+                }}
+              >
+                <option value="user">一般ユーザー</option>
+                <option value="regional_manager">地域マネージャー</option>
+                <option value="department_head">本部長</option>
+                <option value="cfo">CFO</option>
+                <option value="admin">管理者</option>
+              </select>
+            </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              表示名 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.displayName}
-              onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-              required
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '14px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
+            <div style={{ backgroundColor: '#fff3cd', padding: '12px', borderRadius: '6px', marginBottom: '15px', border: '1px solid #ffc107' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#856404' }}>
+                ℹ️ ユーザーは「初回ログイン待ち」状態で登録されます。<br />
+                登録後、ユーザーに初回ログイン用のメールアドレスとパスワードを案内してください。
+              </p>
+            </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              権限 <span style={{ color: 'red' }}>*</span>
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+            <button
+              type="submit"
+              disabled={loading}
               style={{
-                width: '100%',
-                padding: '8px',
+                padding: '12px 24px',
+                backgroundColor: loading ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
+                fontWeight: 'bold'
               }}
             >
-              <option value="user">一般ユーザー</option>
-              <option value="regional_manager">地域管理者</option>
-              <option value="department_head">本部長</option>
-              <option value="cfo">CFO</option>
-              <option value="admin">管理者</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            追加
-          </button>
-        </form>
+              {loading ? '登録中...' : '追加'}
+            </button>
+          </form>
+        </div>
       )}
 
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
-              <th style={{ padding: '12px', textAlign: 'left' }}>表示名</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>メールアドレス</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>権限</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>ステータス</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>登録日</th>
+              <th style={{ padding: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px' }}>表示名</th>
+              <th style={{ padding: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px' }}>メールアドレス</th>
+              <th style={{ padding: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px' }}>権限</th>
+              <th style={{ padding: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px' }}>ステータス</th>
+              <th style={{ padding: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px' }}>登録日</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
-              <tr key={user.id} style={{ borderBottom: '1px solid #dee2e6' }}>
-                <td style={{ padding: '12px' }}>{user.displayName}</td>
-                <td style={{ padding: '12px' }}>{user.email}</td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  {getRoleBadge(user.role)}
-                </td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  <span style={{
-                    padding: '4px 12px',
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    backgroundColor: user.status === 'active' ? '#d4edda' : '#f8d7da',
-                    color: user.status === 'active' ? '#155724' : '#721c24'
-                  }}>
-                    {user.status === 'active' ? '有効' : '無効'}
-                  </span>
-                </td>
-                <td style={{ padding: '12px' }}>
-                  {user.createdAt?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#6c757d' }}>
+                  ユーザーが登録されていません
                 </td>
               </tr>
-            ))}
+            ) : (
+              users.map((user) => (
+                <tr key={user.id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <td style={{ padding: '15px', fontSize: '14px' }}>{user.displayName}</td>
+                  <td style={{ padding: '15px', fontSize: '14px' }}>{user.email}</td>
+                  <td style={{ padding: '15px' }}>{getRoleBadge(user.role)}</td>
+                  <td style={{ padding: '15px' }}>{getStatusBadge(user.status)}</td>
+                  <td style={{ padding: '15px', fontSize: '14px' }}>
+                    {user.createdAt?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-
-      {users.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-          ユーザーが登録されていません
-        </div>
-      )}
     </div>
   );
 }

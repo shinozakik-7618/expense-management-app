@@ -4,6 +4,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import Login from './Login';
 import Dashboard from './Dashboard';
+import TransactionList from './TransactionList';
+import CategoryManagement from './CategoryManagement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null);
@@ -34,6 +36,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute>
+              <TransactionList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <ProtectedRoute>
+              <CategoryManagement />
             </ProtectedRoute>
           }
         />

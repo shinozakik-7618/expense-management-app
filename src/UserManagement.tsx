@@ -11,6 +11,7 @@ interface User {
   role: string;
   organizationId: string;
   status: string;
+  inviteToken?: string;
   createdAt: any;
 }
 
@@ -24,6 +25,7 @@ export default function UserManagement() {
     displayName: '',
     role: 'user'
   });
+  const [inviteUrl, setInviteUrl] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -46,6 +48,10 @@ export default function UserManagement() {
     }
   };
 
+  const generateToken = () => {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -57,7 +63,10 @@ export default function UserManagement() {
     try {
       setLoading(true);
 
-      // Firestoreに仮ユーザーとして登録（初回ログイン時にAuthenticationに登録）
+      const token = generateToken();
+      const baseUrl = window.location.origin;
+      const fullInviteUrl = `${baseUrl}/invite?token=${token}`;
+
       await addDoc(collection(db, 'users'), {
         email: formData.email,
         displayName: formData.displayName,
@@ -65,11 +74,13 @@ export default function UserManagement() {
         organizationId: 'org001',
         organizationType: 'regional',
         status: 'pending',
+        inviteToken: token,
+        tokenCreatedAt: Timestamp.now(),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });
 
-      alert(`ユーザーを登録しました\n\nメール: ${formData.email}\n\n※ユーザーに初回ログイン用の案内を送信してください`);
+      setInviteUrl(fullInviteUrl);
       setFormData({ email: '', displayName: '', role: 'user' });
       setShowForm(false);
       loadUsers();
@@ -79,6 +90,11 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyInviteUrl = () => {
+    navigator.clipboard.writeText(inviteUrl);
+    alert('招待URLをコピーしました');
   };
 
   const getRoleBadge = (role: string) => {
@@ -91,14 +107,7 @@ export default function UserManagement() {
     };
     const badge = badges[role] || badges.user;
     return (
-      <span style={{
-        padding: '4px 12px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        backgroundColor: badge.color,
-        color: 'white'
-      }}>
+      <span style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: badge.color, color: 'white' }}>
         {badge.text}
       </span>
     );
@@ -112,14 +121,7 @@ export default function UserManagement() {
     };
     const badge = badges[status] || badges.pending;
     return (
-      <span style={{
-        padding: '4px 12px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        backgroundColor: badge.color,
-        color: status === 'pending' ? '#000' : 'white'
-      }}>
+      <span style={{ padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: badge.color, color: status === 'pending' ? '#000' : 'white' }}>
         {badge.text}
       </span>
     );
@@ -134,101 +136,49 @@ export default function UserManagement() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#333' }}>ユーザー管理</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#0d6efd',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold'
-            }}
-          >
+          <button onClick={() => setShowForm(!showForm)} style={{ padding: '10px 20px', backgroundColor: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
             {showForm ? 'キャンセル' : '+ ユーザー追加'}
           </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
+          <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>
             ダッシュボードに戻る
           </button>
         </div>
       </div>
 
+      {inviteUrl && (
+        <div style={{ backgroundColor: '#d1e7dd', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #badbcc' }}>
+          <h3 style={{ marginBottom: '15px', color: '#0f5132' }}>✅ ユーザーを登録しました</h3>
+          <p style={{ marginBottom: '10px', fontSize: '14px', color: '#0f5132' }}>以下の招待URLをユーザーに送信してください：</p>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input type="text" value={inviteUrl} readOnly style={{ flex: 1, padding: '10px', border: '1px solid #badbcc', borderRadius: '4px', fontSize: '14px' }} />
+            <button onClick={copyInviteUrl} style={{ padding: '10px 20px', backgroundColor: '#198754', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}>
+              コピー
+            </button>
+          </div>
+          <p style={{ marginTop: '10px', fontSize: '12px', color: '#0f5132' }}>※ このURLは24時間有効です</p>
+          <button onClick={() => setInviteUrl('')} style={{ marginTop: '15px', padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+            閉じる
+          </button>
+        </div>
+      )}
+
       {showForm && (
-        <div style={{
-          backgroundColor: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          marginBottom: '30px',
-          border: '1px solid #dee2e6'
-        }}>
+        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #dee2e6' }}>
           <h2 style={{ fontSize: '20px', marginBottom: '20px', color: '#333' }}>新規ユーザー追加</h2>
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
-                メールアドレス *
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '14px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
-              />
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>メールアドレス *</label>
+              <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ced4da', borderRadius: '4px' }} />
             </div>
 
             <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
-                表示名 *
-              </label>
-              <input
-                type="text"
-                value={formData.displayName}
-                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                required
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '14px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
-              />
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>表示名 *</label>
+              <input type="text" value={formData.displayName} onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} required style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ced4da', borderRadius: '4px' }} />
             </div>
 
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
-                権限
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '14px',
-                  border: '1px solid #ced4da',
-                  borderRadius: '4px'
-                }}
-              >
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>権限</label>
+              <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} style={{ width: '100%', padding: '10px', fontSize: '14px', border: '1px solid #ced4da', borderRadius: '4px' }}>
                 <option value="user">一般ユーザー</option>
                 <option value="regional_manager">地域マネージャー</option>
                 <option value="department_head">本部長</option>
@@ -237,27 +187,7 @@ export default function UserManagement() {
               </select>
             </div>
 
-            <div style={{ backgroundColor: '#fff3cd', padding: '12px', borderRadius: '6px', marginBottom: '15px', border: '1px solid #ffc107' }}>
-              <p style={{ margin: 0, fontSize: '13px', color: '#856404' }}>
-                ℹ️ ユーザーは「初回ログイン待ち」状態で登録されます。<br />
-                登録後、ユーザーに初回ログイン用のメールアドレスとパスワードを案内してください。
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: loading ? '#ccc' : '#28a745',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold'
-              }}
-            >
+            <button type="submit" disabled={loading} style={{ padding: '12px 24px', backgroundColor: loading ? '#ccc' : '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
               {loading ? '登録中...' : '追加'}
             </button>
           </form>
@@ -278,9 +208,7 @@ export default function UserManagement() {
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#6c757d' }}>
-                  ユーザーが登録されていません
-                </td>
+                <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#6c757d' }}>ユーザーが登録されていません</td>
               </tr>
             ) : (
               users.map((user) => (
@@ -289,9 +217,7 @@ export default function UserManagement() {
                   <td style={{ padding: '15px', fontSize: '14px' }}>{user.email}</td>
                   <td style={{ padding: '15px' }}>{getRoleBadge(user.role)}</td>
                   <td style={{ padding: '15px' }}>{getStatusBadge(user.status)}</td>
-                  <td style={{ padding: '15px', fontSize: '14px' }}>
-                    {user.createdAt?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
-                  </td>
+                  <td style={{ padding: '15px', fontSize: '14px' }}>{user.createdAt?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}</td>
                 </tr>
               ))
             )}

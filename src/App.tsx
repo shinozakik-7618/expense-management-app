@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useState, useEffect } from 'react';
 import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import Login from './Login';
 import Dashboard from './Dashboard';
 import TransactionList from './TransactionList';
@@ -10,8 +10,10 @@ import TransactionEdit from './TransactionEdit';
 import TransactionDetail from './TransactionDetail';
 import CategoryManagement from './CategoryManagement';
 import UserManagement from './UserManagement';
+import InviteAccept from './InviteAccept';
+import TransactionImport from './TransactionImport';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,78 +22,37 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       setLoading(false);
     });
-    return unsubscribe;
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) {
     return <div style={{ padding: '20px', textAlign: 'center' }}>読み込み中...</div>;
   }
 
-  return user ? <>{children}</> : <Navigate to="/" />;
-}
+  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    if (!user) {
+      return <Navigate to="/" />;
+    }
+    return children;
+  };
 
-export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transactions"
-          element={
-            <ProtectedRoute>
-              <TransactionList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transactions/create"
-          element={
-            <ProtectedRoute>
-              <TransactionCreate />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transactions/:id/edit"
-          element={
-            <ProtectedRoute>
-              <TransactionEdit />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/transactions/:id"
-          element={
-            <ProtectedRoute>
-              <TransactionDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/categories"
-          element={
-            <ProtectedRoute>
-              <CategoryManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/users"
-          element={
-            <ProtectedRoute>
-              <UserManagement />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/invite" element={<InviteAccept />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/transactions" element={<ProtectedRoute><TransactionList /></ProtectedRoute>} />
+        <Route path="/transactions/create" element={<ProtectedRoute><TransactionCreate /></ProtectedRoute>} />
+        <Route path="/transactions/import" element={<ProtectedRoute><TransactionImport /></ProtectedRoute>} />
+        <Route path="/transactions/:id/edit" element={<ProtectedRoute><TransactionEdit /></ProtectedRoute>} />
+        <Route path="/transactions/:id" element={<ProtectedRoute><TransactionDetail /></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute><CategoryManagement /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
 }
+
+export default App;

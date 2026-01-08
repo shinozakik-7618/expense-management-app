@@ -2,7 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, where, getDocs } from 'firebase/firestore';
+import { getUserInfo, buildTransactionQuery } from './utils/userPermissions';
 
 interface Transaction {
   id: string;
@@ -13,26 +14,64 @@ interface Transaction {
   memo: string;
   status: string;
   receiptCount: number;
+  userId: string;
+  blockId?: string;
+  regionId?: string;
+  baseId?: string;
 }
 
 function TransactionList() {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
-    const q = query(collection(db, 'transactions'), orderBy('transactionDate', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Transaction));
-      setTransactions(data);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadTransactions();
   }, []);
+
+  const loadTransactions = async () => {
+    if (!auth.currentUser) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const userInfo = await getUserInfo(auth.currentUser.uid);
+      if (!userInfo) {
+        setLoading(false);
+        return;
+      }
+
+      setUserRole(userInfo.role);
+      const queryFilter = buildTransactionQuery(userInfo);
+
+      let q;
+      if (queryFilter.field && queryFilter.value) {
+        q = query(
+          collection(db, 'transactions'),
+          where(queryFilter.field, '==', queryFilter.value),
+          orderBy('transactionDate', 'desc')
+        );
+      } else {
+        q = query(collection(db, 'transactions'), orderBy('transactionDate', 'desc'));
+      }
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Transaction));
+        setTransactions(data);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('取引一覧取得エラー:', error);
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -58,7 +97,6 @@ function TransactionList() {
       rejected: { bg: '#FFEBEE', text: '#C62828', label: '差戻し' },
       approved: { bg: '#E8F5E9', text: '#2E7D32', label: '承認済' }
     };
-
     const style = styles[status] || styles.pending;
     return (
       <span style={{
@@ -74,6 +112,17 @@ function TransactionList() {
     );
   };
 
+  const getRoleBadge = (role: string) => {
+    const labels: { [key: string]: string } = {
+      admin: '👑 管理者',
+      block_manager: '🏢 ブロック責任者',
+      region_manager: '🏪 地域責任者',
+      base_manager: '🏬 拠点責任者',
+      user: '👤 一般ユーザー'
+    };
+    return labels[role] || '👤 一般ユーザー';
+  };
+
   if (loading) {
     return <div style={{ padding: '20px' }}>読み込み中...</div>;
   }
@@ -81,7 +130,14 @@ function TransactionList() {
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>取引一覧</h1>
+        <div>
+          <h1>取引一覧</h1>
+          {userRole && (
+            <div style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
+              {getRoleBadge(userRole)} として表示中
+            </div>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={() => navigate('/transactions/import')}

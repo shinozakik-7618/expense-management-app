@@ -1,24 +1,26 @@
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { auth, db } from './firebase';
+import { db } from './firebase';
+import { auth } from './firebase';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, addDoc, Timestamp, getDocs } from 'firebase/firestore';
 
 interface User {
-  id: string;
+  uid: string;
   email: string;
-  displayName: string;
+  displayName?: string;
   role: string;
+  status: string;
+  cardNumber?: string;
+  employeeId?: string;
   blockId?: string;
   blockName?: string;
   regionId?: string;
+  regionName?: string;
   baseId?: string;
-  organizationId: string;
-  organizationType: string;
-  status: string;
-  createdAt: any;
-  inviteToken?: string;
-  tokenCreatedAt?: any;
+  baseName?: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 interface Block {
@@ -30,335 +32,475 @@ interface Region {
   id: string;
   name: string;
   blockId: string;
-  blockName: string;
 }
 
 interface Base {
   id: string;
   name: string;
   regionId: string;
-  blockId: string;
-  blockName: string;
 }
 
-function UserManagement() {
+const UserManagement: React.FC = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [inviteUrl, setInviteUrl] = useState('');
-  
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [bases, setBases] = useState<Base[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('');
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('');
   
-  const [formData, setFormData] = useState({
-    email: '',
-    displayName: '',
-    role: 'user',
-    blockId: '',
-    regionId: '',
-    baseId: ''
-  });
+  // 現在のユーザー情報
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    loadUsers();
-    loadOrganizations();
+    loadData();
   }, []);
 
-  const loadUsers = () => {
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as User));
-      setUsers(data);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  };
-
-  const loadOrganizations = async () => {
+  const loadData = async () => {
     try {
+      setLoading(true);
+      
+      // 現在のユーザー情報を取得
+      const currentUserAuth = auth.currentUser;
+      if (currentUserAuth) {
+        const userQuery = query(collection(db, 'users'), where('uid', '==', currentUserAuth.uid));
+        const userDoc = await getDocs(userQuery);
+        if (!userDoc.empty) {
+          setCurrentUser({ uid: currentUserAuth.uid, ...userDoc.docs[0].data() } as User);
+        }
+      }
+
+      // ユーザー一覧を取得
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const usersData: User[] = [];
+      usersSnapshot.forEach((doc) => {
+        usersData.push({ uid: doc.id, ...doc.data() } as User);
+      });
+      setUsers(usersData);
+
+      // 組織情報を取得
       const blocksSnapshot = await getDocs(collection(db, 'blocks'));
-      const blocksData = blocksSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Block));
+      const blocksData: Block[] = [];
+      blocksSnapshot.forEach((doc) => {
+        blocksData.push({ id: doc.id, ...doc.data() } as Block);
+      });
       setBlocks(blocksData);
 
       const regionsSnapshot = await getDocs(collection(db, 'regions'));
-      const regionsData = regionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Region));
+      const regionsData: Region[] = [];
+      regionsSnapshot.forEach((doc) => {
+        regionsData.push({ id: doc.id, ...doc.data() } as Region);
+      });
       setRegions(regionsData);
 
       const basesSnapshot = await getDocs(collection(db, 'bases'));
-      const basesData = basesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Base));
+      const basesData: Base[] = [];
+      basesSnapshot.forEach((doc) => {
+        basesData.push({ id: doc.id, ...doc.data() } as Base);
+      });
       setBases(basesData);
+
     } catch (error) {
-      console.error('組織データ取得エラー:', error);
+      console.error('データ読み込みエラー:', error);
+      alert('データの読み込みに失敗しました');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.email || !formData.displayName) {
-      alert('メールアドレスと表示名を入力してください');
+  // 編集権限チェック
+  const canEdit = (user: User): boolean => {
+    if (!currentUser) return false;
+    // 管理者は全員編集可能
+    if (currentUser.role === 'admin') return true;
+    // 一般ユーザーは自分自身のみ編集可能
+    return currentUser.uid === user.uid;
+  };
+
+  // 削除権限チェック
+  const canDelete = (user: User): boolean => {
+    if (!currentUser) return false;
+    // 管理者のみ削除可能
+    return currentUser.role === 'admin';
+  };
+
+  const handleEdit = (user: User) => {
+    if (!canEdit(user)) {
+      alert('このユーザーを編集する権限がありません');
+      return;
+    }
+    setEditingUser({ ...user });
+    setSelectedBlockId(user.blockId || '');
+    setSelectedRegionId(user.regionId || '');
+  };
+
+  const handleSave = async () => {
+    if (!editingUser) return;
+
+    if (!canEdit(editingUser)) {
+      alert('このユーザーを編集する権限がありません');
       return;
     }
 
     try {
-      const token = Math.random().toString(36).substring(2, 15);
-      const block = blocks.find(b => b.id === formData.blockId);
-      
-      await addDoc(collection(db, 'users'), {
-        email: formData.email,
-        displayName: formData.displayName,
-        role: formData.role,
-        blockId: formData.blockId || null,
-        blockName: block?.name || null,
-        regionId: formData.regionId || null,
-        baseId: formData.baseId || null,
-        organizationId: 'org001',
-        organizationType: 'regional',
-        status: 'pending',
-        inviteToken: token,
-        tokenCreatedAt: Timestamp.now(),
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+      // 組織名を設定
+      const blockName = blocks.find(b => b.id === editingUser.blockId)?.name || '';
+      const regionName = regions.find(r => r.id === editingUser.regionId)?.name || '';
+      const baseName = bases.find(b => b.id === editingUser.baseId)?.name || '';
+
+      await updateDoc(doc(db, 'users', editingUser.uid), {
+        displayName: editingUser.displayName,
+        role: editingUser.role,
+        status: editingUser.status,
+        cardNumber: editingUser.cardNumber || '',
+        employeeId: editingUser.employeeId || '',
+        blockId: editingUser.blockId || '',
+        blockName: blockName,
+        regionId: editingUser.regionId || '',
+        regionName: regionName,
+        baseId: editingUser.baseId || '',
+        baseName: baseName,
+        updatedAt: new Date()
       });
 
-      const url = `${window.location.origin}/invite?token=${token}`;
-      setInviteUrl(url);
-      
-      setFormData({
-        email: '',
-        displayName: '',
-        role: 'user',
-        blockId: '',
-        regionId: '',
-        baseId: ''
-      });
-      
-      alert('ユーザーを追加しました');
+      alert('ユーザー情報を更新しました');
+      setEditingUser(null);
+      loadData();
     } catch (error) {
-      console.error('ユーザー追加エラー:', error);
-      alert('ユーザーの追加に失敗しました');
+      console.error('更新エラー:', error);
+      alert('更新に失敗しました');
+    }
+  };
+
+  const handleDelete = async (user: User) => {
+    if (!canDelete(user)) {
+      alert('このユーザーを削除する権限がありません');
+      return;
+    }
+
+    if (!window.confirm(`${user.displayName || user.email} を削除しますか？`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'users', user.uid));
+      alert('ユーザーを削除しました');
+      loadData();
+    } catch (error) {
+      console.error('削除エラー:', error);
+      alert('削除に失敗しました');
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    navigate('/');
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+    }
   };
 
   const getRoleBadge = (role: string) => {
-    const styles: { [key: string]: { bg: string; text: string; label: string } } = {
-      admin: { bg: '#F3E5F5', text: '#7B1FA2', label: '管理者' },
-      block_manager: { bg: '#E8EAF6', text: '#3F51B5', label: 'ブロック責任者' },
-      region_manager: { bg: '#E3F2FD', text: '#1976D2', label: '地域責任者' },
-      base_manager: { bg: '#E0F2F1', text: '#00796B', label: '拠点責任者' },
-      user: { bg: '#F5F5F5', text: '#616161', label: '一般ユーザー' }
+    const badges: { [key: string]: { label: string; className: string } } = {
+      admin: { label: '管理者', className: 'bg-purple-100 text-purple-800' },
+      user: { label: '一般', className: 'bg-blue-100 text-blue-800' },
+      approver: { label: '承認者', className: 'bg-green-100 text-green-800' }
     };
-    const style = styles[role] || styles.user;
+    const badge = badges[role] || { label: role, className: 'bg-gray-100 text-gray-800' };
     return (
-      <span style={{
-        padding: '4px 12px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        background: style.bg,
-        color: style.text
-      }}>
-        {style.label}
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${badge.className}`}>
+        {badge.label}
       </span>
     );
   };
 
   const getStatusBadge = (status: string) => {
-    const styles: { [key: string]: { bg: string; text: string; label: string } } = {
-      active: { bg: '#E8F5E9', text: '#2E7D32', label: '🟢 有効' },
-      pending: { bg: '#FFF3E0', text: '#E65100', label: '🟡 初回ログイン待ち' },
-      inactive: { bg: '#FFEBEE', text: '#C62828', label: '🔴 無効' }
+    const badges: { [key: string]: { label: string; className: string } } = {
+      active: { label: '有効', className: 'bg-green-100 text-green-800' },
+      inactive: { label: '無効', className: 'bg-red-100 text-red-800' }
     };
-    const style = styles[status] || styles.pending;
+    const badge = badges[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
     return (
-      <span style={{
-        padding: '4px 12px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        background: style.bg,
-        color: style.text
-      }}>
-        {style.label}
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${badge.className}`}>
+        {badge.label}
       </span>
     );
   };
 
-  const getOrganizationName = (user: User) => {
-    if (user.role === 'admin') return '全組織';
-    
-    const block = blocks.find(b => b.id === user.blockId);
-    const region = regions.find(r => r.id === user.regionId);
-    const base = bases.find(b => b.id === user.baseId);
-    
-    if (user.role === 'block_manager' && block) return block.name;
-    if (user.role === 'region_manager' && region) return `${block?.name || user.blockName || ''} > ${region.name}`;
-    if (user.role === 'base_manager' && base) return `${region?.name || ''} > ${base.name}`;
-    if (base) return base.name;
-    
-    return user.blockName || '-';
+  // ブロック選択時
+  const handleBlockChange = (blockId: string) => {
+    setSelectedBlockId(blockId);
+    setSelectedRegionId('');
+    if (editingUser) {
+      setEditingUser({ ...editingUser, blockId, regionId: '', baseId: '' });
+    }
   };
 
-  const filteredRegions = formData.blockId 
-    ? regions.filter(r => r.blockId === formData.blockId)
+  // 地域選択時
+  const handleRegionChange = (regionId: string) => {
+    setSelectedRegionId(regionId);
+    if (editingUser) {
+      setEditingUser({ ...editingUser, regionId, baseId: '' });
+    }
+  };
+
+  // フィルタリングされた地域一覧
+  const filteredRegions = selectedBlockId
+    ? regions.filter(r => r.blockId === selectedBlockId)
     : [];
 
-  const filteredBases = formData.regionId
-    ? bases.filter(b => b.regionId === formData.regionId)
+  // フィルタリングされた拠点一覧
+  const filteredBases = selectedRegionId
+    ? bases.filter(b => b.regionId === selectedRegionId)
     : [];
 
   if (loading) {
-    return <div style={{ padding: '20px' }}>読み込み中...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-xl">読み込み中...</div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>ユーザー管理</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{
-              padding: '10px 20px',
-              background: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            {showForm ? '閉じる' : '+ ユーザー追加'}
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              padding: '10px 20px',
-              background: '#9E9E9E',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            ダッシュボードに戻る
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '10px 20px',
-              background: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            ログアウト
-          </button>
-        </div>
-      </div>
-
-      {showForm && (
-        <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <h2>新規ユーザー追加</h2>
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                メールアドレス *
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                表示名 *
-              </label>
-              <input
-                type="text"
-                value={formData.displayName}
-                onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                権限 *
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* ヘッダー */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
+            <div className="flex gap-4">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
               >
-                <option value="user">一般ユーザー</option>
-                <option value="base_manager">拠点責任者</option>
-                <option value="region_manager">地域責任者</option>
-                <option value="block_manager">ブロック責任者</option>
-                <option value="admin">管理者</option>
-              </select>
+                📊 ダッシュボード
+              </button>
+              <button
+                onClick={() => navigate('/transactions')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                📝 取引一覧
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-red-600 hover:text-red-900"
+              >
+                ログアウト
+              </button>
             </div>
+          </div>
+          <p className="text-gray-600 mt-2">総ユーザー数: {users.length}名</p>
+        </div>
 
-            {formData.role !== 'admin' && (
-              <>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                    ブロック *
+        {/* ユーザー一覧 */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  メールアドレス
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  表示名
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  役割
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  状態
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  カード番号
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  従業員ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  ブロック
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  地域
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  拠点
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {users.map((user) => (
+                <tr key={user.uid}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.email}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.displayName || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getRoleBadge(user.role)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {getStatusBadge(user.status)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.cardNumber || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.employeeId || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.blockName || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.regionName || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.baseName || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex gap-2">
+                      {canEdit(user) && (
+                        <button
+                          onClick={() => handleEdit(user)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          ✏️ 修正
+                        </button>
+                      )}
+                      {canDelete(user) && (
+                        <button
+                          onClick={() => handleDelete(user)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          🗑️ 削除
+                        </button>
+                      )}
+                      {!canEdit(user) && !canDelete(user) && (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 編集モーダル */}
+        {editingUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">ユーザー情報を編集</h2>
+              
+              <div className="space-y-4">
+                {/* メールアドレス（読み取り専用） */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    メールアドレス
+                  </label>
+                  <input
+                    type="email"
+                    value={editingUser.email}
+                    disabled
+                    className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 px-3 py-2"
+                  />
+                </div>
+
+                {/* 表示名 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    表示名
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.displayName || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
+                  />
+                </div>
+
+                {/* 役割（管理者のみ変更可能） */}
+                {currentUser?.role === 'admin' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      役割
+                    </label>
+                    <select
+                      value={editingUser.role}
+                      onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
+                    >
+                      <option value="admin">管理者</option>
+                      <option value="user">一般</option>
+                      <option value="approver">承認者</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* 状態（管理者のみ変更可能） */}
+                {currentUser?.role === 'admin' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      状態
+                    </label>
+                    <select
+                      value={editingUser.status}
+                      onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
+                    >
+                      <option value="active">有効</option>
+                      <option value="inactive">無効</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* カード番号下4桁 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    カード番号（下4桁）
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.cardNumber || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, cardNumber: e.target.value })}
+                    placeholder="例: 1234"
+                    maxLength={4}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
+                  />
+                </div>
+
+                {/* 従業員ID */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    従業員ID
+                  </label>
+                  <input
+                    type="text"
+                    value={editingUser.employeeId || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, employeeId: e.target.value })}
+                    placeholder="例: 100029"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
+                  />
+                </div>
+
+                {/* ブロック */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    ブロック
                   </label>
                   <select
-                    value={formData.blockId}
-                    onChange={(e) => setFormData({ ...formData, blockId: e.target.value, regionId: '', baseId: '' })}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px'
-                    }}
-                    required
+                    value={selectedBlockId}
+                    onChange={(e) => handleBlockChange(e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border"
                   >
                     <option value="">選択してください</option>
-                    {blocks.map(block => (
+                    {blocks.map((block) => (
                       <option key={block.id} value={block.id}>
                         {block.name}
                       </option>
@@ -366,153 +508,67 @@ function UserManagement() {
                   </select>
                 </div>
 
-                {formData.role !== 'block_manager' && formData.blockId && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                      地域 *
-                    </label>
-                    <select
-                      value={formData.regionId}
-                      onChange={(e) => setFormData({ ...formData, regionId: e.target.value, baseId: '' })}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}
-                      required
-                    >
-                      <option value="">選択してください</option>
-                      {filteredRegions.map(region => (
-                        <option key={region.id} value={region.id}>
-                          {region.id} - {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {/* 地域 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    地域
+                  </label>
+                  <select
+                    value={selectedRegionId}
+                    onChange={(e) => handleRegionChange(e.target.value)}
+                    disabled={!selectedBlockId}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border disabled:bg-gray-100"
+                  >
+                    <option value="">選択してください</option>
+                    {filteredRegions.map((region) => (
+                      <option key={region.id} value={region.id}>
+                        {region.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                {formData.role !== 'block_manager' && formData.role !== 'region_manager' && formData.regionId && (
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                      拠点 *
-                    </label>
-                    <select
-                      value={formData.baseId}
-                      onChange={(e) => setFormData({ ...formData, baseId: e.target.value })}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}
-                      required
-                    >
-                      <option value="">選択してください</option>
-                      {filteredBases.map(base => (
-                        <option key={base.id} value={base.id}>
-                          {base.id} - {base.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </>
-            )}
+                {/* 拠点 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    拠点
+                  </label>
+                  <select
+                    value={editingUser.baseId || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, baseId: e.target.value })}
+                    disabled={!selectedRegionId}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 border disabled:bg-gray-100"
+                  >
+                    <option value="">選択してください</option>
+                    {filteredBases.map((base) => (
+                      <option key={base.id} value={base.id}>
+                        {base.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              style={{
-                padding: '10px 20px',
-                background: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              追加
-            </button>
-          </form>
-
-          {inviteUrl && (
-            <div style={{ marginTop: '20px', padding: '15px', background: '#E8F5E9', borderRadius: '4px' }}>
-              <h3>✅ 招待リンクが生成されました</h3>
-              <p style={{ fontSize: '14px', marginBottom: '10px' }}>
-                以下のURLをユーザーに送信してください：
-              </p>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  value={inviteUrl}
-                  readOnly
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    border: '1px solid #4CAF50',
-                    borderRadius: '4px',
-                    background: 'white'
-                  }}
-                />
+              <div className="flex justify-end gap-4 mt-6">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(inviteUrl);
-                    alert('URLをコピーしました');
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    background: '#4CAF50',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900"
                 >
-                  コピー
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  保存
                 </button>
               </div>
             </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ background: 'white', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #E3F2FD' }}>
-        <p style={{ margin: 0, fontSize: '14px', color: '#1976D2' }}>
-          ℹ️ ユーザーは「初回ログイン待ち」状態で登録されます。招待URLから初回ログインすると「有効」になります。
-        </p>
-      </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <thead>
-            <tr style={{ background: '#f5f5f5' }}>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>表示名</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>メールアドレス</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>権限</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>所属</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ddd' }}>ステータス</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>登録日</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(user => (
-              <tr key={user.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px' }}>{user.displayName}</td>
-                <td style={{ padding: '12px' }}>{user.email}</td>
-                <td style={{ padding: '12px' }}>{getRoleBadge(user.role)}</td>
-                <td style={{ padding: '12px', fontSize: '14px' }}>{getOrganizationName(user)}</td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>{getStatusBadge(user.status)}</td>
-                <td style={{ padding: '12px' }}>
-                  {user.createdAt?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
     </div>
   );
-}
+};
 
 export default UserManagement;

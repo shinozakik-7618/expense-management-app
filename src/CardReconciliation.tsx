@@ -53,22 +53,18 @@ const CardReconciliation: React.FC = () => {
 
     const transactions: CardTransaction[] = [];
     
-    // ヘッダー行をスキップ
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
 
-      // タブ区切りまたはカンマ区切りを自動判定
       const separator = line.includes('\t') ? '\t' : ',';
       const columns = line.split(separator);
 
-      // 最低限必要な列数をチェック
       if (columns.length < 10) {
         console.log(`⚠️ 行${i}: 列数不足 (${columns.length}列)`);
         continue;
       }
 
-      // 列のマッピング（TSV形式）
       const transactionDate = columns[2]?.trim();
       const amountStr = columns[36]?.trim();
       const merchantName = columns[12]?.trim();
@@ -77,7 +73,6 @@ const CardReconciliation: React.FC = () => {
       const accountHolderFirstName = columns[8]?.trim();
       const employeeId = columns[9]?.trim();
 
-      // 金額を数値に変換
       const amount = parseFloat(amountStr?.replace(/[^0-9.-]/g, '') || '0');
 
       if (!transactionDate || !amount || !merchantName) {
@@ -116,7 +111,6 @@ const CardReconciliation: React.FC = () => {
     console.log('🔍 突合開始:', cardTransactions.length, '件');
 
     try {
-      // Firestoreから全取引を取得
       const transactionsSnapshot = await getDocs(collection(db, 'transactions'));
       const systemTransactions: SystemTransaction[] = [];
       transactionsSnapshot.forEach((doc) => {
@@ -132,28 +126,22 @@ const CardReconciliation: React.FC = () => {
 
       console.log('📊 システム取引:', systemTransactions.length, '件');
 
-      // Firestoreからユーザー情報を取得（従業員ID → userId マッピング用）
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const employeeIdToUserId: { [key: string]: string } = {};
-      const userIdToEmail: { [key: string]: string } = {};
       usersSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.employeeId) {
           employeeIdToUserId[data.employeeId] = doc.id;
         }
-        userIdToEmail[doc.id] = data.email || '';
       });
 
-      // 突合処理
       const newMismatches: Mismatch[] = [];
       const notificationsToCreate: any[] = [];
 
       for (const cardTx of cardTransactions) {
-        // 日付を YYYY-MM-DD 形式に整形
         const cardDate = cardTx.transactionDate.replace(/\//g, '-');
         const cardAmount = cardTx.amount;
 
-        // 完全一致を探す
         const perfectMatch = systemTransactions.find(sysTx => {
           const sysDate = sysTx.transactionDate;
           const sysAmount = sysTx.amount;
@@ -165,7 +153,6 @@ const CardReconciliation: React.FC = () => {
           continue;
         }
 
-        // 日付不一致（金額は一致）
         const dateMismatch = systemTransactions.find(sysTx => {
           const sysDate = sysTx.transactionDate;
           const sysAmount = sysTx.amount;
@@ -182,7 +169,6 @@ const CardReconciliation: React.FC = () => {
           continue;
         }
 
-        // 金額不一致（日付は一致）
         const amountMismatch = systemTransactions.find(sysTx => {
           const sysDate = sysTx.transactionDate;
           const sysAmount = sysTx.amount;
@@ -199,14 +185,12 @@ const CardReconciliation: React.FC = () => {
           continue;
         }
 
-        // 未登録
         console.log('❌ 未登録:', cardDate, cardAmount, cardTx.merchantName);
         newMismatches.push({
           type: 'not_registered',
           cardTransaction: cardTx
         });
 
-        // 通知作成（未登録の場合のみ）
         const userId = employeeIdToUserId[cardTx.employeeId];
         if (userId) {
           notificationsToCreate.push({
@@ -226,7 +210,6 @@ const CardReconciliation: React.FC = () => {
         }
       }
 
-      // 通知をFirestoreに保存
       console.log('📧 通知作成開始:', notificationsToCreate.length, '件');
       for (const notification of notificationsToCreate) {
         await addDoc(collection(db, 'notifications'), notification);

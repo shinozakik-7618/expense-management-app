@@ -62,7 +62,7 @@ export default function CategoryManagement() {
             cursor: 'pointer'
           }}
         >
-          ダッシュボードに戻る
+          📊 ダッシュボード
         </button>
       </div>
 

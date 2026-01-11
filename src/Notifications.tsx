@@ -114,6 +114,12 @@ const Notifications: React.FC = () => {
               >
                 📊 ダッシュボード
               </button>
+              <button
+                onClick={() => navigate('/transactions')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
+              >
+                📝 取引一覧
+              </button>
             </div>
           </div>
         </div>

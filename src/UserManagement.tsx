@@ -341,7 +341,7 @@ const UserManagement: React.FC = () => {
                 onClick={handleLogout}
                 className="px-4 py-2 text-red-600 hover:text-red-900"
               >
-                ログアウト
+                🔓 ログアウト
               </button>
             </div>
           </div>

@@ -202,7 +202,7 @@ const Dashboard: React.FC = () => {
                 </button>
               )}
               <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', color: '#dc2626', cursor: 'pointer', border: 'none', background: 'none' }}>
-                ログアウト
+                🔓 ログアウト
               </button>
             </div>
           </div>
@@ -316,7 +316,7 @@ const Dashboard: React.FC = () => {
                     </td>
                     <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>
                       <button
-                        onClick={() => navigate('/transactions')}
+                        onClick={() => navigate("/transactions/" + transaction.id)}
                         style={{ color: '#2563eb', cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'none' }}
                       >
                         詳細

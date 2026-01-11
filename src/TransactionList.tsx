@@ -148,7 +148,7 @@ export default function TransactionList() {
               onClick={() => navigate('/dashboard')}
               className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
             >
-              ダッシュボード
+              📊 ダッシュボード
             </button>
             <button
               onClick={handleLogout}

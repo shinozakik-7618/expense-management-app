@@ -1,273 +1,327 @@
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { auth, db } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { collection, getDocs, addDoc } from 'firebase/firestore';
 
 interface CardTransaction {
   transactionDate: string;
   amount: number;
   merchantName: string;
-  cardNumber?: string;
-  accountHolderLastName?: string;
-  accountHolderFirstName?: string;
-  employeeId?: string;
+  cardNumber: string;
+  accountHolderLastName: string;
+  accountHolderFirstName: string;
+  employeeId: string;
 }
 
 interface SystemTransaction {
   id: string;
-  transactionDate: any;
+  transactionDate: string;
   amount: number;
   merchantName: string;
   userId: string;
-  status: string;
 }
 
 interface Mismatch {
   type: 'not_registered' | 'date_mismatch' | 'amount_mismatch';
-  cardData: CardTransaction;
-  systemData?: SystemTransaction;
-  message: string;
+  cardTransaction: CardTransaction;
+  systemTransaction?: SystemTransaction;
 }
 
-export default function CardReconciliation() {
+const CardReconciliation: React.FC = () => {
   const navigate = useNavigate();
   const [cardTransactions, setCardTransactions] = useState<CardTransaction[]>([]);
   const [mismatches, setMismatches] = useState<Mismatch[]>([]);
   const [loading, setLoading] = useState(false);
   const [reconciled, setReconciled] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n');
-      const data: CardTransaction[] = [];
-
-      console.log('📂 ファイル読み込み開始');
-      console.log('総行数:', lines.length);
-
-      if (lines.length > 0) {
-        console.log('ヘッダー行:', lines[0].substring(0, 100));
-      }
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const separator = line.includes('\t') ? '\t' : ',';
-        const columns = line.split(separator);
-
-        if (i === 1) {
-          console.log('区切り文字:', separator === '\t' ? 'タブ' : 'カンマ');
-          console.log('列数:', columns.length);
-        }
-
-        if (columns.length < 10) continue;
-
-        const transactionDate = columns[2]?.trim();
-        const amountStr = columns[36]?.trim();
-        const merchantName = columns[12]?.trim();
-        const cardNumber = columns[3]?.trim();
-        const accountHolderLastName = columns[7]?.trim();
-        const accountHolderFirstName = columns[8]?.trim();
-        const employeeId = columns[9]?.trim();
-
-        if (!transactionDate || !amountStr) continue;
-
-        const amount = parseFloat(amountStr.replace(/[^\d.-]/g, ''));
-        if (isNaN(amount)) continue;
-
-        data.push({
-          transactionDate,
-          amount,
-          merchantName: merchantName || '',
-          cardNumber,
-          accountHolderLastName,
-          accountHolderFirstName,
-          employeeId: employeeId !== '-' ? employeeId : undefined,
-        });
-      }
-
-      console.log('✅ 読み込み完了:', data.length, '件');
-      setCardTransactions(data);
-      setReconciled(false);
-      setMismatches([]);
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      parseCSV(text);
     };
-
     reader.readAsText(file);
   };
 
-  const handleReconcile = async () => {
-    setLoading(true);
+  const parseCSV = (text: string) => {
+    console.log('📄 ファイル読み込み開始');
+    const lines = text.split('\n');
+    console.log('📊 総行数:', lines.length);
 
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        alert('ログインしてください');
-        setLoading(false);
-        return;
+    const transactions: CardTransaction[] = [];
+    
+    // ヘッダー行をスキップ
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      // タブ区切りまたはカンマ区切りを自動判定
+      const separator = line.includes('\t') ? '\t' : ',';
+      const columns = line.split(separator);
+
+      // 最低限必要な列数をチェック
+      if (columns.length < 10) {
+        console.log(`⚠️ 行${i}: 列数不足 (${columns.length}列)`);
+        continue;
       }
 
-      const transactionsRef = collection(db, 'transactions');
-      const snapshot = await getDocs(transactionsRef);
-      
-      const systemTransactions: SystemTransaction[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SystemTransaction));
+      // 列のマッピング（TSV形式）
+      const transactionDate = columns[2]?.trim();
+      const amountStr = columns[36]?.trim();
+      const merchantName = columns[12]?.trim();
+      const cardNumber = columns[3]?.trim();
+      const accountHolderLastName = columns[7]?.trim();
+      const accountHolderFirstName = columns[8]?.trim();
+      const employeeId = columns[9]?.trim();
 
-      console.log('システム取引件数:', systemTransactions.length);
-      console.log('カード請求件数:', cardTransactions.length);
+      // 金額を数値に変換
+      const amount = parseFloat(amountStr?.replace(/[^0-9.-]/g, '') || '0');
 
-      const newMismatches: Mismatch[] = [];
-
-      for (const cardTx of cardTransactions) {
-        const cardDateParts = cardTx.transactionDate.split('/');
-        const cardDate = `${cardDateParts[0]}-${cardDateParts[1].padStart(2, '0')}-${cardDateParts[2].padStart(2, '0')}`;
-
-        let dateMatch: SystemTransaction | undefined;
-        let amountMatch: SystemTransaction | undefined;
-        let perfectMatch: SystemTransaction | undefined;
-
-        for (const sysTx of systemTransactions) {
-          const sysDate = sysTx.transactionDate?.toDate();
-          if (!sysDate) continue;
-
-          const sysDateStr = `${sysDate.getFullYear()}-${String(sysDate.getMonth() + 1).padStart(2, '0')}-${String(sysDate.getDate()).padStart(2, '0')}`;
-
-          const dateMatches = sysDateStr === cardDate;
-          const amountMatches = Math.abs(sysTx.amount - cardTx.amount) < 1;
-
-          if (dateMatches && amountMatches) {
-            perfectMatch = sysTx;
-            break;
-          } else if (dateMatches && !dateMatch) {
-            dateMatch = sysTx;
-          } else if (amountMatches && !amountMatch) {
-            amountMatch = sysTx;
-          }
-        }
-
-        if (perfectMatch) {
-          console.log('✅ 一致:', cardTx.merchantName);
-        } else if (amountMatch) {
-          newMismatches.push({
-            type: 'date_mismatch',
-            cardData: cardTx,
-            systemData: amountMatch,
-            message: '金額は一致していますが、取引日が異なります'
-          });
-        } else if (dateMatch) {
-          newMismatches.push({
-            type: 'amount_mismatch',
-            cardData: cardTx,
-            systemData: dateMatch,
-            message: '取引日は一致していますが、金額が異なります'
-          });
-        } else {
-          newMismatches.push({
-            type: 'not_registered',
-            cardData: cardTx,
-            message: 'この取引はシステムに登録されていません'
-          });
-        }
+      if (!transactionDate || !amount || !merchantName) {
+        console.log(`⚠️ 行${i}: 必須データ不足`);
+        continue;
       }
 
-      setMismatches(newMismatches);
-      setReconciled(true);
-
-      console.log('突合完了:', {
-        一致件数: cardTransactions.length - newMismatches.length,
-        不一致件数: newMismatches.length
+      transactions.push({
+        transactionDate,
+        amount,
+        merchantName,
+        cardNumber: cardNumber || '',
+        accountHolderLastName: accountHolderLastName || '',
+        accountHolderFirstName: accountHolderFirstName || '',
+        employeeId: employeeId || ''
       });
-
-    } catch (error) {
-      console.error('突合エラー:', error);
-      alert('突合処理中にエラーが発生しました');
     }
 
-    setLoading(false);
+    console.log('✅ 読み込み完了:', transactions.length, '件');
+    setCardTransactions(transactions);
+  };
+
+  const handleReconcile = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      alert('ログインしてください');
+      return;
+    }
+
+    if (cardTransactions.length === 0) {
+      alert('カード取引データを読み込んでください');
+      return;
+    }
+
+    setLoading(true);
+    console.log('🔍 突合開始:', cardTransactions.length, '件');
+
+    try {
+      // Firestoreから全取引を取得
+      const transactionsSnapshot = await getDocs(collection(db, 'transactions'));
+      const systemTransactions: SystemTransaction[] = [];
+      transactionsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        systemTransactions.push({
+          id: doc.id,
+          transactionDate: data.transactionDate,
+          amount: data.amount,
+          merchantName: data.merchantName,
+          userId: data.userId
+        });
+      });
+
+      console.log('📊 システム取引:', systemTransactions.length, '件');
+
+      // Firestoreからユーザー情報を取得（従業員ID → userId マッピング用）
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const employeeIdToUserId: { [key: string]: string } = {};
+      const userIdToEmail: { [key: string]: string } = {};
+      usersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.employeeId) {
+          employeeIdToUserId[data.employeeId] = doc.id;
+        }
+        userIdToEmail[doc.id] = data.email || '';
+      });
+
+      // 突合処理
+      const newMismatches: Mismatch[] = [];
+      const notificationsToCreate: any[] = [];
+
+      for (const cardTx of cardTransactions) {
+        // 日付を YYYY-MM-DD 形式に整形
+        const cardDate = cardTx.transactionDate.replace(/\//g, '-');
+        const cardAmount = cardTx.amount;
+
+        // 完全一致を探す
+        const perfectMatch = systemTransactions.find(sysTx => {
+          const sysDate = sysTx.transactionDate;
+          const sysAmount = sysTx.amount;
+          return sysDate === cardDate && Math.abs(sysAmount - cardAmount) < 1;
+        });
+
+        if (perfectMatch) {
+          console.log('✅ 一致:', cardDate, cardAmount);
+          continue;
+        }
+
+        // 日付不一致（金額は一致）
+        const dateMismatch = systemTransactions.find(sysTx => {
+          const sysDate = sysTx.transactionDate;
+          const sysAmount = sysTx.amount;
+          return sysDate !== cardDate && Math.abs(sysAmount - cardAmount) < 1;
+        });
+
+        if (dateMismatch) {
+          console.log('⚠️ 日付不一致:', cardDate, dateMismatch.transactionDate, cardAmount);
+          newMismatches.push({
+            type: 'date_mismatch',
+            cardTransaction: cardTx,
+            systemTransaction: dateMismatch
+          });
+          continue;
+        }
+
+        // 金額不一致（日付は一致）
+        const amountMismatch = systemTransactions.find(sysTx => {
+          const sysDate = sysTx.transactionDate;
+          const sysAmount = sysTx.amount;
+          return sysDate === cardDate && Math.abs(sysAmount - cardAmount) >= 1;
+        });
+
+        if (amountMismatch) {
+          console.log('⚠️ 金額不一致:', cardDate, cardAmount, amountMismatch.amount);
+          newMismatches.push({
+            type: 'amount_mismatch',
+            cardTransaction: cardTx,
+            systemTransaction: amountMismatch
+          });
+          continue;
+        }
+
+        // 未登録
+        console.log('❌ 未登録:', cardDate, cardAmount, cardTx.merchantName);
+        newMismatches.push({
+          type: 'not_registered',
+          cardTransaction: cardTx
+        });
+
+        // 通知作成（未登録の場合のみ）
+        const userId = employeeIdToUserId[cardTx.employeeId];
+        if (userId) {
+          notificationsToCreate.push({
+            userId: userId,
+            type: 'card_mismatch',
+            title: '未登録の経費取引があります',
+            message: `取引日: ${cardTx.transactionDate}, 金額: ${cardTx.amount.toLocaleString()}円, 加盟店: ${cardTx.merchantName}`,
+            data: {
+              transactionDate: cardTx.transactionDate,
+              amount: cardTx.amount,
+              merchantName: cardTx.merchantName,
+              mismatchType: 'not_registered'
+            },
+            read: false,
+            createdAt: new Date()
+          });
+        }
+      }
+
+      // 通知をFirestoreに保存
+      console.log('📧 通知作成開始:', notificationsToCreate.length, '件');
+      for (const notification of notificationsToCreate) {
+        await addDoc(collection(db, 'notifications'), notification);
+      }
+      console.log('✅ 通知作成完了');
+
+      console.log('📊 突合結果: 不一致', newMismatches.length, '件');
+      setMismatches(newMismatches);
+      setReconciled(true);
+      alert(`突合完了\n不一致: ${newMismatches.length}件\n通知作成: ${notificationsToCreate.length}件`);
+    } catch (error) {
+      console.error('❌ 突合エラー:', error);
+      alert('突合処理でエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getMismatchBadge = (type: string) => {
-    switch (type) {
-      case 'not_registered':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">未登録</span>;
-      case 'date_mismatch':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">日付不一致</span>;
-      case 'amount_mismatch':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">金額不一致</span>;
-      default:
-        return null;
-    }
+    const badges: { [key: string]: { label: string; className: string } } = {
+      not_registered: { label: '未登録', className: 'bg-red-100 text-red-800' },
+      date_mismatch: { label: '日付不一致', className: 'bg-yellow-100 text-yellow-800' },
+      amount_mismatch: { label: '金額不一致', className: 'bg-orange-100 text-orange-800' }
+    };
+    const badge = badges[type] || { label: type, className: 'bg-gray-100 text-gray-800' };
+    return (
+      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${badge.className}`}>
+        {badge.label}
+      </span>
+    );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* ヘッダー */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">💳 カード請求突合</h1>
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <button
                 onClick={() => navigate('/dashboard')}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
               >
-                ダッシュボード
+                📊 ダッシュボード
               </button>
               <button
                 onClick={() => navigate('/transactions')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900"
               >
-                取引一覧
+                📝 取引一覧
               </button>
             </div>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">📂 カード請求CSVをアップロード</h2>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-blue-800 font-semibold mb-2">📋 CSVフォーマット</p>
-            <p className="text-xs text-blue-700 mb-2">タブ区切り（TSV）形式で、以下の列を含むファイルをアップロードしてください：</p>
-            <ul className="text-xs text-blue-700 list-disc list-inside space-y-1">
-              <li>取引日付（列3）</li>
-              <li>金額 JPY（列37）</li>
-              <li>取引先（列13）</li>
-              <li>アカウント保有者の名前（列8, 9）</li>
-              <li>アカウント保有者従業員ID（列10）</li>
-            </ul>
-          </div>
-
-          <input
-            type="file"
-            accept=".csv,.tsv,.txt"
-            onChange={handleFileUpload}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-
-          {cardTransactions.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-gray-700">
-                📊 読み込み件数: <span className="font-semibold">{cardTransactions.length}件</span>
+        {/* CSVアップロード */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">カード請求CSVをアップロード</h2>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-600 mb-2">
+                💡 CSVファイル形式: TSV（タブ区切り）またはカンマ区切り
               </p>
+              <p className="text-sm text-gray-600 mb-4">
+                必須列: 取引日付（列3）、金額 JPY（列37）、取引先（列13）、<br />
+                アカウント保有者の名前（列8,9）、従業員ID（列10）
+              </p>
+              <input
+                type="file"
+                accept=".csv,.tsv,.txt"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
             </div>
-          )}
+            {cardTransactions.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded p-4">
+                <p className="text-green-800">
+                  ✅ {cardTransactions.length}件の取引を読み込みました
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
 
-          {cardTransactions.length > 0 && !reconciled && (
-            <div className="mt-4 flex gap-2">
+        {/* 突合実行ボタン */}
+        {cardTransactions.length > 0 && !reconciled && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="flex gap-4">
               <button
                 onClick={handleReconcile}
                 disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? '突合中...' : '突合を実行'}
+                {loading ? '突合実行中...' : '🔍 突合を実行'}
               </button>
               <button
                 onClick={() => {
@@ -275,21 +329,22 @@ export default function CardReconciliation() {
                   setMismatches([]);
                   setReconciled(false);
                 }}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
               >
                 キャンセル
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
+        {/* 突合結果 */}
         {reconciled && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {mismatches.length === 0 ? (
                 <span className="text-green-600">✅ 突合完了: 不一致なし</span>
               ) : (
-                <span className="text-orange-600">⚠️ 突合結果: {mismatches.length}件の不一致</span>
+                <span className="text-red-600">⚠️ 突合結果: {mismatches.length}件の不一致</span>
               )}
             </h2>
 
@@ -313,28 +368,26 @@ export default function CardReconciliation() {
                           {getMismatchBadge(mismatch.type)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mismatch.cardData.transactionDate}
+                          {mismatch.cardTransaction.transactionDate}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ¥{mismatch.cardData.amount.toLocaleString()}
+                          ¥{mismatch.cardTransaction.amount.toLocaleString()}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {mismatch.cardData.merchantName}
+                          {mismatch.cardTransaction.merchantName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {mismatch.cardData.accountHolderLastName} {mismatch.cardData.accountHolderFirstName}
-                          {mismatch.cardData.employeeId && (
-                            <div className="text-xs text-gray-500">ID: {mismatch.cardData.employeeId}</div>
+                          {mismatch.cardTransaction.accountHolderLastName} {mismatch.cardTransaction.accountHolderFirstName}
+                          {mismatch.cardTransaction.employeeId && (
+                            <div className="text-xs text-gray-500">ID: {mismatch.cardTransaction.employeeId}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {mismatch.message}
-                          {mismatch.systemData && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              システム: {mismatch.systemData.merchantName}
-                              {mismatch.type === 'amount_mismatch' && (
-                                <span> (¥{mismatch.systemData.amount.toLocaleString()})</span>
-                              )}
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {mismatch.systemTransaction && (
+                            <div>
+                              <div>システム: {mismatch.systemTransaction.transactionDate}</div>
+                              <div>金額: ¥{mismatch.systemTransaction.amount.toLocaleString()}</div>
+                              <div>加盟店: {mismatch.systemTransaction.merchantName}</div>
                             </div>
                           )}
                         </td>
@@ -344,15 +397,11 @@ export default function CardReconciliation() {
                 </table>
               </div>
             )}
-
-            {mismatches.length === 0 && (
-              <p className="text-sm text-gray-600">
-                全ての取引が正常に突合されました。
-              </p>
-            )}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
-}
+};
+
+export default CardReconciliation;

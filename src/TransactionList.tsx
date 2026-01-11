@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { getUserInfo, buildTransactionQuery } from './utils/userPermissions';
 
 interface Transaction {
@@ -14,13 +14,9 @@ interface Transaction {
   memo: string;
   status: string;
   receiptCount: number;
-  userId: string;
-  blockId?: string;
-  regionId?: string;
-  baseId?: string;
 }
 
-function TransactionList() {
+export default function TransactionList() {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,271 +27,215 @@ function TransactionList() {
   }, []);
 
   const loadTransactions = async () => {
-    if (!auth.currentUser) {
-      setLoading(false);
-      return;
-    }
-
     try {
-      const userInfo = await getUserInfo(auth.currentUser.uid);
-      if (!userInfo) {
-        setLoading(false);
-        return;
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const userInfo = await getUserInfo(currentUser.uid);
+      if (userInfo) {
+        setUserRole(userInfo.role);
       }
 
-      setUserRole(userInfo.role);
-      const queryFilter = buildTransactionQuery(userInfo);
-
+      const queryCondition = buildTransactionQuery(userInfo!);
+      const transactionsRef = collection(db, 'transactions');
+      
       let q;
-      if (queryFilter.field && queryFilter.value) {
-        q = query(
-          collection(db, 'transactions'),
-          where(queryFilter.field, '==', queryFilter.value),
-          orderBy('transactionDate', 'desc')
-        );
+      if (queryCondition.field && queryCondition.value) {
+        q = query(transactionsRef, where(queryCondition.field, '==', queryCondition.value));
       } else {
-        q = query(collection(db, 'transactions'), orderBy('transactionDate', 'desc'));
+        q = query(transactionsRef);
       }
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Transaction));
-        setTransactions(data);
+      onSnapshot(q, (snapshot) => {
+        const txList = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }) as Transaction)
+          .sort((a, b) => {
+            const dateA = a.transactionDate?.toDate() || new Date(0);
+            const dateB = b.transactionDate?.toDate() || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          });
+
+        setTransactions(txList);
         setLoading(false);
       });
-
-      return () => unsubscribe();
     } catch (error) {
-      console.error('取引一覧取得エラー:', error);
+      console.error('取引一覧読み込みエラー:', error);
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    navigate('/');
+    try {
+      await signOut(auth);
+      navigate('/');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+    }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('この取引を削除しますか？')) {
-      try {
-        await deleteDoc(doc(db, 'transactions', id));
-        alert('削除しました');
-      } catch (error) {
-        console.error('削除エラー:', error);
-        alert('削除に失敗しました');
-      }
+  const handleDelete = async (transactionId: string) => {
+    if (!confirm('この取引を削除しますか？')) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'transactions', transactionId));
+      alert('削除しました');
+    } catch (error) {
+      console.error('削除エラー:', error);
+      alert('削除に失敗しました');
     }
   };
 
   const getStatusBadge = (status: string) => {
-    const styles: { [key: string]: { bg: string; text: string; label: string } } = {
-      pending: { bg: '#FFF3E0', text: '#E65100', label: '未処理' },
-      submitted: { bg: '#E3F2FD', text: '#1565C0', label: '申請中' },
-      rejected: { bg: '#FFEBEE', text: '#C62828', label: '差戻し' },
-      approved: { bg: '#E8F5E9', text: '#2E7D32', label: '承認済' }
+    const badges: { [key: string]: { bg: string; text: string; label: string } } = {
+      pending: { bg: 'bg-blue-100', text: 'text-blue-800', label: '未処理' },
+      submitted: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '申請中' },
+      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: '差戻し' },
+      approved: { bg: 'bg-green-100', text: 'text-green-800', label: '承認済' }
     };
-    const style = styles[status] || styles.pending;
+    const badge = badges[status] || badges.pending;
     return (
-      <span style={{
-        padding: '4px 12px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        background: style.bg,
-        color: style.text
-      }}>
-        {style.label}
+      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+        {badge.label}
       </span>
     );
   };
 
-  const getRoleBadge = (role: string) => {
-    const labels: { [key: string]: string } = {
-      admin: '👑 管理者',
-      block_manager: '🏢 ブロック責任者',
-      region_manager: '🏪 地域責任者',
-      base_manager: '🏬 拠点責任者',
-      user: '👤 一般ユーザー'
-    };
-    return labels[role] || '👤 一般ユーザー';
-  };
-
   if (loading) {
-    return <div style={{ padding: '20px' }}>読み込み中...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">読み込み中...</div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div>
-          <h1>取引一覧</h1>
-          {userRole && (
-            <div style={{ fontSize: '14px', color: '#666', marginTop: '5px' }}>
-              {getRoleBadge(userRole)} として表示中
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ヘッダー */}
+        <div className="mb-8 flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">取引一覧</h1>
+          <div className="flex gap-4">
+            <button
+              onClick={() => navigate('/reconciliation/card')}
+              className="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700"
+            >
+              💳 カード請求突合
+            </button>
+            <button
+              onClick={() => navigate('/reports/unreported')}
+              className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
+            >
+              📋 未報告取引
+            </button>
+            <button
+              onClick={() => navigate('/transactions/import')}
+              className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
+            >
+              📥 CSVインポート
+            </button>
+            <button
+              onClick={() => navigate('/transactions/create')}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            >
+              + 新規登録
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+            >
+              ダッシュボード
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
+            >
+              ログアウト
+            </button>
+          </div>
+        </div>
+
+        {/* 取引テーブル */}
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          {transactions.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              取引データがありません
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">取引日</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">金額</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">加盟店名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">メモ</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">証憑</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.transactionDate?.toDate()?.toLocaleDateString('ja-JP')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        ¥{transaction.amount?.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {transaction.merchantName}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {transaction.memo || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {transaction.receiptCount > 0 ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-semibold">
+                            📎 {transaction.receiptCount}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">なし</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(transaction.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigate(`/transactions/${transaction.id}`)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          >
+                            詳細
+                          </button>
+                          <button
+                            onClick={() => navigate(`/transactions/${transaction.id}/edit`)}
+                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                          >
+                            編集
+                          </button>
+                          <button
+                            onClick={() => handleDelete(transaction.id)}
+                            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => navigate('/transactions/import')}
-            style={{
-              padding: '10px 20px',
-              background: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            📥 CSVインポート
-          </button>
-          <button
-            onClick={() => navigate('/transactions/create')}
-            style={{
-              padding: '10px 20px',
-              background: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            + 新規登録
-          </button>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              padding: '10px 20px',
-              background: '#9E9E9E',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            ダッシュボードに戻る
-          </button>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '10px 20px',
-              background: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            ログアウト
-          </button>
-        </div>
       </div>
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <thead>
-            <tr style={{ background: '#f5f5f5' }}>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>取引日</th>
-              <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>金額</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>加盟店名</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>メモ</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ddd' }}>証憑</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ddd' }}>ステータス</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ddd' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map(transaction => (
-              <tr key={transaction.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px' }}>
-                  {transaction.transactionDate?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
-                </td>
-                <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold' }}>
-                  ¥{transaction.amount?.toLocaleString() || 0}
-                </td>
-                <td style={{ padding: '12px' }}>{transaction.merchantName}</td>
-                <td style={{ padding: '12px' }}>{transaction.memo || '-'}</td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  {transaction.receiptCount > 0 && (
-                    <span style={{
-                      background: '#E3F2FD',
-                      color: '#1976D2',
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}>
-                      📎 {transaction.receiptCount}
-                    </span>
-                  )}
-                </td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  {getStatusBadge(transaction.status)}
-                </td>
-                <td style={{ padding: '12px', textAlign: 'center' }}>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                    <button
-                      onClick={() => navigate(`/transactions/${transaction.id}`)}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#2196F3',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      詳細
-                    </button>
-                    <button
-                      onClick={() => navigate(`/transactions/${transaction.id}/edit`)}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#FF9800',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      編集
-                    </button>
-                    <button
-                      onClick={() => handleDelete(transaction.id)}
-                      style={{
-                        padding: '6px 12px',
-                        background: '#f44336',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {transactions.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-          取引データがありません
-        </div>
-      )}
     </div>
   );
 }
-
-export default TransactionList;

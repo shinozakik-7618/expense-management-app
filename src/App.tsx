@@ -13,6 +13,7 @@ import CategoryManagement from './CategoryManagement';
 import UserManagement from './UserManagement';
 import InviteAccept from './InviteAccept';
 import UnreportedTransactions from './UnreportedTransactions';
+import CardReconciliation from './CardReconciliation';
 
 function App() {
   const [user, setUser] = useState<any>(null);
@@ -100,6 +101,14 @@ function App() {
           element={
             <ProtectedRoute>
               <UnreportedTransactions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reconciliation/card"
+          element={
+            <ProtectedRoute>
+              <CardReconciliation />
             </ProtectedRoute>
           }
         />

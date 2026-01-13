@@ -22,13 +22,31 @@ export default function TransactionEdit() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadCategories();
-    if (id) {
-      loadTransaction(id);
-    }
-  }, [id]);
+  // 金額フォーマット関数
+  const formatAmount = (value: string): string => {
+    const num = value.replace(/[^0-9]/g, '');
+    return num ? Number(num).toLocaleString() : '';
+  };
 
+  const parseAmount = (value: string): string => {
+    return value.replace(/,/g, '');
+  };
+
+  useEffect(() => {
+
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          loadCategories(),
+          id ? loadTransaction(id) : Promise.resolve()
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [id]);
   const loadCategories = async () => {
     try {
       const q = query(collection(db, 'categories'), orderBy('displayOrder'));
@@ -45,7 +63,6 @@ export default function TransactionEdit() {
 
   const loadTransaction = async (transactionId: string) => {
     try {
-      setLoading(true);
       const docRef = doc(db, 'transactions', transactionId);
       const docSnap = await getDoc(docRef);
       
@@ -65,8 +82,6 @@ export default function TransactionEdit() {
     } catch (error) {
       console.error('取引の取得に失敗:', error);
       alert('取引の取得に失敗しました');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -159,9 +174,9 @@ export default function TransactionEdit() {
             金額（税込・円） <span style={{ color: 'red' }}>*</span>
           </label>
           <input
-            type="number"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            type="text"
+            value={formatAmount(formData.amount)}
+            onChange={(e) => setFormData({ ...formData, amount: parseAmount(e.target.value) })}
             required
             min="0"
             style={{

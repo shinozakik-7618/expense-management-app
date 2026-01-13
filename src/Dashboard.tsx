@@ -49,7 +49,8 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      setLoading(true);
+      setLoading(false);
+      
 
       const userQuery = query(collection(db, 'users'), where('email', '==', currentUser.email));
       const userSnapshot = await getDocs(userQuery);

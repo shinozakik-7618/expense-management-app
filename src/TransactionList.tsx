@@ -127,7 +127,7 @@ export default function TransactionList() {
               💳 カード請求突合
             </button>
             <button
-              onClick={() => navigate('/reports/unreported')}
+              onClick={() => navigate('/unreported')}
               className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700"
             >
               📋 未報告取引

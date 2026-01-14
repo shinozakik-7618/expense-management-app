@@ -66,6 +66,8 @@ const UserManagement: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
+  setLoading(false);
+  setLoading(false);
     loadData();
   }, []);
 
@@ -75,7 +77,7 @@ const UserManagement: React.FC = () => {
 
   const loadData = async () => {
     try {
-      setLoading(true);
+      
       
       // 現在のユーザー情報を取得
       const currentUserAuth = auth.currentUser;

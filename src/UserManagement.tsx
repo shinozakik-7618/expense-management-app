@@ -313,8 +313,8 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '20px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* ヘッダー */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex justify-between items-center">

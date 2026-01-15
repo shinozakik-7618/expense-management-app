@@ -1,9 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ユーザーは自分のドキュメントのみ読み書き可能
+    // ユーザーは認証されていれば読み書き可能
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
     // カテゴリー（用途）は全員が読み取り可能
@@ -12,11 +13,16 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
     
-    // 取引は自分のもののみ読み書き可能
+    // 取引は認証されていれば全て読み取り可能
     match /transactions/{transactionId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == resource.data.userId || 
-         request.auth.uid == request.resource.data.userId);
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // 通知（notifications）は認証されていれば読み取り可能
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null;
     }
   }
 }

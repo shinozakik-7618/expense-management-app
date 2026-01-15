@@ -20,7 +20,8 @@ function TransactionCreate() {
     amount: '',
     merchantName: '',
     categoryId: '',
-    memo: ''
+    memo: '',
+    expenseDestination: ''
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -133,6 +134,7 @@ function TransactionCreate() {
         merchantName: formData.merchantName,
         categoryId: formData.categoryId,
         memo: formData.memo,
+        expenseDestination: formData.expenseDestination,
         status: 'pending',
         approvalRoute: 'regional',
         receiptCount: selectedFiles.length,
@@ -170,10 +172,29 @@ function TransactionCreate() {
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <h1>新規取引登録</h1>
       <form onSubmit={handleSubmit} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        {/* 1. 領収書（JPEG形式） */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>領収書（JPEG形式）</label>
+          <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+          {previewUrls.length > 0 && (
+            <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+              {previewUrls.map((url, index) => (
+                <div key={index} style={{ position: 'relative' }}>
+                  <img src={url} alt={`preview-${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }} />
+                  <button type="button" onClick={() => removeFile(index)} style={{ position: 'absolute', top: '5px', right: '5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* 2. 取引日 */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>取引日 *</label>
           <input type="date" value={formData.transactionDate} onChange={(e) => setFormData({ ...formData, transactionDate: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} required />
         </div>
+        
+        {/* 3. 金額（税込・円） */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>金額（税込・円） *</label>
           <input 
@@ -187,10 +208,14 @@ function TransactionCreate() {
             全角数字も自動で半角に変換されます
           </div>
         </div>
+        
+        {/* 4. 店舗名 */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>加盟店名 *</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>店舗名 *</label>
           <input type="text" value={formData.merchantName} onChange={(e) => setFormData({ ...formData, merchantName: e.target.value })} placeholder="セブンイレブン" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} required />
         </div>
+        
+        {/* 5. 用途 */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>用途 *</label>
           <select value={formData.categoryId} onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} required>
@@ -198,28 +223,24 @@ function TransactionCreate() {
             {categories.map(category => (<option key={category.id} value={category.id}>{category.name}</option>))}
           </select>
         </div>
+        
+        {/* 6. メモ（目的、人数等） */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>メモ</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>メモ（目的、人数等）</label>
           <textarea value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} rows={3} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
         </div>
+        
+        {/* 7. 経費計上先 */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>証憑画像（JPEG形式）</label>
-          <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
-          {previewUrls.length > 0 && (
-            <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-              {previewUrls.map((url, index) => (
-                <div key={index} style={{ position: 'relative' }}>
-                  <img src={url} alt={`preview-${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }} />
-                  <button type="button" onClick={() => removeFile(index)} style={{ position: 'absolute', top: '5px', right: '5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>経費計上先</label>
+          <input type="text" value={formData.expenseDestination} onChange={(e) => setFormData({ ...formData, expenseDestination: e.target.value })} placeholder="営業部" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
         </div>
+        
+        {/* 8. ボタン */}
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button type="submit" disabled={loading} style={{ padding: "12px 24px", background: loading ? "#ccc" : "#2196F3", color: "white", border: "none", borderRadius: "4px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "bold" }}>{loading ? "登録中..." : "登録"}</button>
           <button type="button" onClick={() => navigate("/dashboard")} style={{ padding: "12px 24px", background: "#6B7280", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>📊 ダッシュボード</button>
           <button type="button" onClick={() => navigate("/transactions")} style={{ padding: "12px 24px", background: "#6B7280", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>📝 取引一覧</button>
-          <button type="submit" disabled={loading} style={{ padding: "12px 24px", background: loading ? "#ccc" : "#2196F3", color: "white", border: "none", borderRadius: "4px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "bold" }}>{loading ? "登録中..." : "登録"}</button>
         </div>
       </form>
     </div>

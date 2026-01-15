@@ -185,8 +185,9 @@ function TransactionCreate() {
           )}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button type="button" onClick={() => navigate('/transactions')} style={{ padding: '12px 24px', background: '#9E9E9E', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>戻る</button>
-          <button type="submit" disabled={loading} style={{ padding: '12px 24px', background: loading ? '#ccc' : '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{loading ? '登録中...' : '登録'}</button>
+          <button type="button" onClick={() => navigate("/dashboard")} style={{ padding: "12px 24px", background: "#6B7280", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>📊 ダッシュボード</button>
+          <button type="button" onClick={() => navigate("/transactions")} style={{ padding: "12px 24px", background: "#6B7280", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>📝 取引一覧</button>
+          <button type="submit" disabled={loading} style={{ padding: "12px 24px", background: loading ? "#ccc" : "#2196F3", color: "white", border: "none", borderRadius: "4px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "bold" }}>{loading ? "登録中..." : "登録"}</button>
         </div>
       </form>
     </div>

@@ -437,61 +437,61 @@ const UserManagement: React.FC = () => {
         {/* ユーザー一覧テーブル */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
+            <table className="min-w-full border border-gray-300">
+              <thead className="bg-gray-700 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     メール
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     表示名
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     役割
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">
                     状態
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">
                     カード
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">
                     従業員ID
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">
                     組織
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">
                     操作
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentUsers.map((user) => (
-                  <tr key={user.uid} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+              <tbody className="divide-y divide-gray-300">
+                {currentUsers.map((user, index) => (
+                  <tr key={user.uid} style={{ backgroundColor: index % 2 === 0 ? "white" : "#f3f4f6" }} className="hover:bg-gray-50 border-b border-gray-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.email}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.displayName || '-'}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {getRoleBadge(user.role)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(user.status)}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.cardNumber ? (
                         <span className="text-green-600">●●●●{user.cardNumber}</span>
                       ) : (
                         <span className="text-gray-400">未登録</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.employeeId || '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-gray-900">
                       <div className="text-xs">
                         {user.blockName && <div>📍 {user.blockName}</div>}
                         {user.regionName && <div className="text-gray-500">└ {user.regionName}</div>}
@@ -499,7 +499,7 @@ const UserManagement: React.FC = () => {
                         {!user.blockName && !user.regionName && !user.baseName && '-'}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-2">
                         {canEdit(user) && (
                           <button
@@ -530,7 +530,7 @@ const UserManagement: React.FC = () => {
 
           {/* ページネーション */}
           {totalPages > 1 && (
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+            <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}

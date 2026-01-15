@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { auth, db, storage, functions } from './firebase';
 import { httpsCallable } from "firebase/functions";
 import { collection, addDoc, Timestamp, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
@@ -26,6 +26,10 @@ function TransactionCreate() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     loadCategories();
   }, []);
@@ -44,6 +48,53 @@ function TransactionCreate() {
     }
   };
 
+
+  // カメラを起動
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setStream(mediaStream);
+      setShowCamera(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('カメラ起動エラー:', error);
+      alert('カメラの起動に失敗しました');
+    }
+  };
+
+  // 写真を撮影
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const file = new File([blob], `receipt-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            await handleFileChange({ target: { files: [file] } } as any);
+            stopCamera();
+          }
+        }, 'image/jpeg', 0.9);
+      }
+    }
+  };
+
+  // カメラを停止
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setSelectedFiles(files);
@@ -189,7 +240,34 @@ function TransactionCreate() {
         {/* 1. 領収書（JPEG形式） */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>領収書（JPEG形式）</label>
-          <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+          
+          {/* ボタン */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <label style={{ flex: 1, padding: '12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold' }}>
+              📁 ファイルを選択
+              <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ display: 'none' }} />
+            </label>
+            <button type="button" onClick={startCamera} style={{ flex: 1, padding: '12px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              📷 カメラで撮影
+            </button>
+          </div>
+
+          {/* カメラプレビュー */}
+          {showCamera && (
+            <div style={{ marginTop: '10px', background: '#000', borderRadius: '4px', padding: '10px' }}>
+              <video ref={videoRef} autoPlay playsInline style={{ width: '100%', borderRadius: '4px' }} />
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={capturePhoto} style={{ flex: 1, padding: '12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  📸 撮影
+                </button>
+                <button type="button" onClick={stopCamera} style={{ flex: 1, padding: '12px', background: '#F44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  ✕ キャンセル
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading && <div style={{ marginTop: "10px", padding: "10px", background: "#E3F2FD", borderRadius: "4px", color: "#1976D2", fontWeight: "bold" }}>📄 領収書を解析中...</div>}
           {previewUrls.length > 0 && (
             <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
@@ -202,7 +280,6 @@ function TransactionCreate() {
             </div>
           )}
         </div>
-        
         {/* 2. 取引日 */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>取引日 *</label>

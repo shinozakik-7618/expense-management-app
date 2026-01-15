@@ -93,9 +93,9 @@ function TransactionCreate() {
       const transactionRef = await addDoc(collection(db, 'transactions'), {
         userId: auth.currentUser.uid,
         organizationId: 'org001',
-        blockId: userBlockId,
-        regionId: userRegionId,
-        baseId: userBaseId,
+        blockId: userBlockId || null,
+        regionId: userRegionId || null,
+        baseId: userBaseId || null,
         transactionDate: Timestamp.fromDate(new Date(formData.transactionDate)),
         amount: Number(formData.amount),
         merchantName: formData.merchantName,

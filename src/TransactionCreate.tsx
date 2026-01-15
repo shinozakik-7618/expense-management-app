@@ -54,7 +54,21 @@ function TransactionCreate() {
     if (files.length > 0) {
       setLoading(true);
       try {
+        const imageCompression = (await import('browser-image-compression')).default;
+        
         const file = files[0];
+        
+        // 画像圧縮オプション（品質90%、最大幅1920px）
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          initialQuality: 0.9
+        };
+        
+        // 画像を圧縮
+        const compressedFile = await imageCompression(file, options);
+        
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = (reader.result as string).split(',')[1];
@@ -72,7 +86,7 @@ function TransactionCreate() {
             alert('領収書を自動認識しました！');
           }
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(compressedFile);
       } catch (error) {
         console.error('OCRエラー:', error);
         alert('領収書の認識に失敗しました');
@@ -176,6 +190,7 @@ function TransactionCreate() {
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>領収書（JPEG形式）</label>
           <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+          {loading && <div style={{ marginTop: "10px", padding: "10px", background: "#E3F2FD", borderRadius: "4px", color: "#1976D2", fontWeight: "bold" }}>📄 領収書を解析中...</div>}
           {previewUrls.length > 0 && (
             <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
               {previewUrls.map((url, index) => (
@@ -235,7 +250,7 @@ function TransactionCreate() {
         {/* 7. 経費計上先 */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>経費計上先</label>
-          <input type="text" value={formData.expenseDestination} onChange={(e) => setFormData({ ...formData, expenseDestination: e.target.value })} placeholder="営業部" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+          <input type="text" value={formData.expenseDestination} onChange={(e) => setFormData({ ...formData, expenseDestination: e.target.value })} placeholder="拠点または部署" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
         </div>
         
         {/* 8. ボタン */}

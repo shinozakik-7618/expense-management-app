@@ -36,56 +36,69 @@ export const analyzeReceipt = onCall({ invoker: "public" }, async (request) => {
     console.log(fullText);
     console.log("=========================");
 
-    // 金額を抽出（複数パターン対応）
+    // 金額を抽出（改善版）
     let amount: number | undefined;
-    // パターン1: ¥記号付き
-    let amountMatch = fullText.match(/[¥￥円]\s*([0-9,]+)/);
+    // パターン1: 金8,650円 のような形式（全角・半角両対応）
+    let amountMatch = fullText.match(/金\s*([0-9０-９,，]+)\s*円/);
     if (amountMatch) {
-      amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
+      // 全角数字を半角に変換
+      const numStr = amountMatch[1]
+        .replace(/０/g, '0').replace(/１/g, '1').replace(/２/g, '2')
+        .replace(/３/g, '3').replace(/４/g, '4').replace(/５/g, '5')
+        .replace(/６/g, '6').replace(/７/g, '7').replace(/８/g, '8')
+        .replace(/９/g, '9').replace(/，/g, ',').replace(/,/g, '');
+      amount = parseInt(numStr, 10);
     }
-    // パターン2: 合計・小計の後の数字
+    // パターン2: ¥記号付き
     if (!amount) {
-      amountMatch = fullText.match(/(?:合計|小計|total|Total)[:\s]*[¥￥]?\s*([0-9,]+)/i);
+      amountMatch = fullText.match(/[¥￥]\s*([0-9,]+)/);
       if (amountMatch) {
         amount = parseInt(amountMatch[1].replace(/,/g, ""), 10);
       }
     }
-    // パターン3: 最後に出てくる大きな数字
-    if (!amount) {
-      const numbers = fullText.match(/([0-9,]+)/g);
-      if (numbers && numbers.length > 0) {
-        // 最も大きい数字を抽出
-        const nums = numbers.map(n => parseInt(n.replace(/,/g, ""), 10));
-        amount = Math.max(...nums);
-      }
-    }
 
-    // 日付を抽出（複数パターン対応）
+    // 日付を抽出（改善版）
     let date: string | undefined;
-    // パターン1: YYYY/MM/DD または YYYY-MM-DD
-    let dateMatch = fullText.match(/(\d{4})[/-年](\d{1,2})[/-月](\d{1,2})[日]?/);
+    // パターン1: 2026年 1月 7日 のような形式
+    let dateMatch = fullText.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
     if (dateMatch) {
       date = `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`;
     }
-    // パターン2: MM/DD（年は今年と仮定）
+    // パターン2: YYYY/MM/DD または YYYY-MM-DD
     if (!date) {
-      dateMatch = fullText.match(/(\d{1,2})[/-月](\d{1,2})[日]?/);
+      dateMatch = fullText.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
       if (dateMatch) {
-        const year = new Date().getFullYear();
-        date = `${year}-${dateMatch[1].padStart(2, "0")}-${dateMatch[2].padStart(2, "0")}`;
+        const year = parseInt(dateMatch[1], 10);
+        if (year >= 2000 && year <= 2100) {
+          date = `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`;
+        }
       }
     }
 
-    // 店舗名を抽出（最初の有効な行、"領収書"などの単語を除外）
-    const lines = fullText.split("\n").filter((line) => line.trim());
+    // 店舗名を抽出（改善版）
     let merchantName: string | undefined;
-    const excludeWords = ["領収書", "receipt", "レシート", "お買い上げ", "ありがとう"];
+    const lines = fullText.split("\n").filter((line) => line.trim());
+    
+    // パターン1: 「株式会社」「会社」を含む行で、「様」を含まない行
     for (const line of lines) {
       const trimmed = line.trim();
-      // 除外ワードが含まれていない、かつ3文字以上の行を店舗名とする
-      if (trimmed.length >= 2 && !excludeWords.some(word => trimmed.includes(word))) {
+      if ((trimmed.includes("株式会社") || trimmed.includes("会社")) && 
+          !trimmed.includes("様") && 
+          !trimmed.includes("(株)ピーシーデポ")) {
         merchantName = trimmed;
         break;
+      }
+    }
+    
+    // パターン2: 見つからない場合は、除外ワードを避けて最初の有効な行
+    if (!merchantName) {
+      const excludeWords = ["領収書", "領収証", "receipt", "レシート", "お買い上げ", "ありがとう", "様", "2026年", "金"];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length >= 4 && !excludeWords.some(word => trimmed.includes(word))) {
+          merchantName = trimmed;
+          break;
+        }
       }
     }
 

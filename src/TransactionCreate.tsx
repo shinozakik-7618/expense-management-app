@@ -65,7 +65,7 @@ function TransactionCreate() {
             const data = result.data.data;
             setFormData(prev => ({
               ...prev,
-              amount: data.amount ? data.amount.toString() : prev.amount,
+              amount: data.amount ? data.amount.toLocaleString() : prev.amount,
               merchantName: data.merchantName || prev.merchantName,
               transactionDate: data.date || prev.transactionDate
             }));
@@ -199,6 +199,8 @@ function TransactionCreate() {
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>金額（税込・円） *</label>
           <input 
             type="text" 
+            value={formData.amount}
+            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
             onInput={handleAmountInput}
             placeholder="3,000" 
             style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
@@ -209,9 +211,9 @@ function TransactionCreate() {
           </div>
         </div>
         
-        {/* 4. 店舗名 */}
+        {/* 4. 店舗（会社）名 */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>店舗名 *</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>店舗（会社）名 *</label>
           <input type="text" value={formData.merchantName} onChange={(e) => setFormData({ ...formData, merchantName: e.target.value })} placeholder="セブンイレブン" style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} required />
         </div>
         

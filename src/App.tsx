@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import TransactionList from './TransactionList';
 import UnreportedTransactions from './UnreportedTransactions';
 import TransactionEdit from './TransactionEdit';
+import TransactionCreate from './TransactionCreate';
 import TransactionDetail from './TransactionDetail';
 import CategoryManagement from './CategoryManagement';
 import UserManagement from './UserManagement';
@@ -18,6 +19,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/transactions" element={<TransactionList />} />
+        <Route path="/transactions/new" element={<TransactionCreate />} />
         <Route path="/transactions/:id" element={<TransactionDetail />} />
         <Route path="/transactions/:id/edit" element={<TransactionEdit />} />
         <Route path="/unreported" element={<UnreportedTransactions />} />

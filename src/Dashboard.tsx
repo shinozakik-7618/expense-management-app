@@ -163,6 +163,9 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => navigate("/transactions/new")} style={{ padding: "0.5rem 1rem", backgroundColor: "#10b981", color: "white", cursor: "pointer", border: "none", borderRadius: "0.375rem", marginRight: "1rem" }}>
+                ➕ 新規取引
+              </button>
               <button
                 onClick={() => navigate('/notifications')}
                 style={{ position: 'relative', padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}
@@ -193,9 +196,6 @@ const Dashboard: React.FC = () => {
               </button>
               <button onClick={() => navigate('/transactions')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>
                 📝 取引一覧
-              </button>
-              <button onClick={() => navigate('/purpose-master')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>
-                🏷️ 用途マスタ管理
               </button>
               {userRole === 'admin' && (
                 <button onClick={() => navigate('/user-management')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>

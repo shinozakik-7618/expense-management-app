@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { auth, db, storage } from './firebase';
+import { auth, db, storage, functions } from './firebase';
+import { httpsCallable } from "firebase/functions";
 import { collection, addDoc, Timestamp, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -42,11 +43,42 @@ function TransactionCreate() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setSelectedFiles(files);
     const urls = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(urls);
+
+    // 最初の画像でOCR実行
+    if (files.length > 0) {
+      setLoading(true);
+      try {
+        const file = files[0];
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = (reader.result as string).split(',')[1];
+          const analyzeReceipt = httpsCallable(functions, 'analyzeReceipt');
+          const result: any = await analyzeReceipt({ image: base64 });
+          
+          if (result.data.success) {
+            const data = result.data.data;
+            setFormData(prev => ({
+              ...prev,
+              amount: data.amount ? data.amount.toString() : prev.amount,
+              merchantName: data.merchantName || prev.merchantName,
+              transactionDate: data.date || prev.transactionDate
+            }));
+            alert('領収書を自動認識しました！');
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error('OCRエラー:', error);
+        alert('領収書の認識に失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const removeFile = (index: number) => {

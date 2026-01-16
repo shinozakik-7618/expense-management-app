@@ -179,19 +179,34 @@ export default function TransactionDetail() {
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>取引詳細</h1>
-        <button 
-          onClick={() => navigate('/transactions')}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          一覧に戻る
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#6B7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            📊 ダッシュボード
+          </button>
+          <button 
+            onClick={() => navigate('/transactions')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#6B7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            📝 取引一覧
+          </button>
+        </div>
       </div>
 
       <div style={{

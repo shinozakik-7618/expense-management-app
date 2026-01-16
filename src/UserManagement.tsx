@@ -66,8 +66,6 @@ const UserManagement: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-  setLoading(false);
-  setLoading(false);
     loadData();
   }, []);
 
@@ -121,7 +119,6 @@ const UserManagement: React.FC = () => {
 
     } catch (error) {
       console.error('データ読み込みエラー:', error);
-      alert('データの読み込みに失敗しました');
     } finally {
       setLoading(false);
     }

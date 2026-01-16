@@ -32,24 +32,37 @@ export default function Login() {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center',
-      backgroundColor: '#f5f5f5'
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '40px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+      <div className="glass-card" style={{
+        padding: '3rem',
         width: '100%',
-        maxWidth: '400px'
+        maxWidth: '450px',
+        animation: 'fadeInUp 0.5s ease-out'
       }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>
-          法人カード経費精算システム
+        <h1 style={{ 
+          textAlign: 'center', 
+          marginBottom: '2rem',
+          fontSize: '2rem',
+          fontWeight: '800',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 0 30px rgba(102, 126, 234, 0.3)'
+        }}>
+          💼 法人カード経費精算システム
         </h1>
         
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              メールアドレス
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem'
+            }}>
+              📧 メールアドレス
             </label>
             <input
               type="email"
@@ -58,18 +71,35 @@ export default function Login() {
               required
               style={{
                 width: '100%',
-                padding: '10px',
+                padding: '12px 16px',
                 fontSize: '16px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
+                border: '2px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                boxSizing: 'border-box',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-primary)',
+                transition: 'all 0.3s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#667eea';
+                e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.05)';
               }}
             />
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              パスワード
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              fontSize: '0.95rem'
+            }}>
+              🔒 パスワード
             </label>
             <input
               type="password"
@@ -78,43 +108,55 @@ export default function Login() {
               required
               style={{
                 width: '100%',
-                padding: '10px',
+                padding: '12px 16px',
                 fontSize: '16px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                boxSizing: 'border-box'
+                border: '2px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                boxSizing: 'border-box',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-primary)',
+                transition: 'all 0.3s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#667eea';
+                e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.05)';
               }}
             />
           </div>
 
           {error && (
             <div style={{
-              padding: '10px',
-              backgroundColor: '#f8d7da',
-              color: '#721c24',
-              borderRadius: '4px',
-              marginBottom: '20px'
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
+              border: '2px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              fontSize: '0.9rem',
+              fontWeight: '600'
             }}>
-              {error}
+              ⚠️ {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
+            className="btn-primary"
             style={{
               width: '100%',
-              padding: '12px',
+              padding: '14px',
               fontSize: '16px',
-              fontWeight: 'bold',
-              color: 'white',
-              backgroundColor: loading ? '#ccc' : '#007bff',
-              border: 'none',
-              borderRadius: '4px',
+              fontWeight: '700',
+              opacity: loading ? 0.7 : 1,
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'ログイン中...' : 'ログイン'}
+            {loading ? '🔄 ログイン中...' : '🚀 ログイン'}
           </button>
         </form>
       </div>

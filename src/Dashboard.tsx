@@ -49,52 +49,59 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      setLoading(false);
-      
+      console.log('ログイン中のemail:', currentUser.email);
 
+      // ユーザー情報を取得
       const userQuery = query(collection(db, 'users'), where('email', '==', currentUser.email));
       const userSnapshot = await getDocs(userQuery);
+      
       if (!userSnapshot.empty) {
         const userData = userSnapshot.docs[0].data();
         setUserRole(userData.role || 'user');
-        setUserName(userData.displayName || currentUser.email || 'ユーザー');
+        setUserName(userData.name || currentUser.email || '');
       }
 
-      const notifQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', currentUser.uid),
-        where('read', '==', false)
-      );
-      const notifSnapshot = await getDocs(notifQuery);
-      setUnreadNotifications(notifSnapshot.size);
+      // 統計情報を取得
+      const transactionsRef = collection(db, 'transactions');
+      const q = query(transactionsRef, where('userId', '==', currentUser.uid));
+      const snapshot = await getDocs(q);
 
-      const transactionsSnapshot = await getDocs(collection(db, 'transactions'));
-      const pending = transactionsSnapshot.docs.filter(doc => doc.data().status === 'pending').length;
-      const submitted = transactionsSnapshot.docs.filter(doc => doc.data().status === 'submitted').length;
-      const rejected = transactionsSnapshot.docs.filter(doc => doc.data().status === 'rejected').length;
-      const approved = transactionsSnapshot.docs.filter(doc => doc.data().status === 'approved').length;
+      const statsData: Stats = {
+        pending: 0,
+        submitted: 0,
+        rejected: 0,
+        approved: 0
+      };
 
-      setStats({ pending, submitted, rejected, approved });
+      const transactions: RecentTransaction[] = [];
 
-      const allTransactions = transactionsSnapshot.docs.map(doc => {
+      snapshot.docs.forEach(doc => {
         const data = doc.data();
-        return {
+        const status = data.status || 'pending';
+
+        if (status in statsData) {
+          statsData[status as keyof Stats]++;
+        }
+
+        transactions.push({
           id: doc.id,
           transactionDate: formatDate(data.transactionDate),
           amount: data.amount || 0,
           merchantName: data.merchantName || '',
-          status: data.status || 'pending'
-        };
+          status: status
+        });
       });
 
-      allTransactions.sort((a, b) => {
-        if (a.transactionDate > b.transactionDate) return -1;
-        if (a.transactionDate < b.transactionDate) return 1;
-        return 0;
-      });
+      transactions.sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
 
-      const recent = allTransactions.slice(0, 5);
-      setRecentTransactions(recent);
+      setStats(statsData);
+      setRecentTransactions(transactions.slice(0, 5));
+
+      // 未読通知を取得
+      const notificationsRef = collection(db, 'notifications');
+      const notifQuery = query(notificationsRef, where('userId', '==', currentUser.uid), where('read', '==', false));
+      const notifSnapshot = await getDocs(notifQuery);
+      setUnreadNotifications(notifSnapshot.size);
 
     } catch (error) {
       console.error('データ読み込みエラー:', error);
@@ -113,29 +120,51 @@ const Dashboard: React.FC = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: { [key: string]: { label: string; className: string } } = {
-      pending: { label: '未処理', className: 'bg-blue-100 text-blue-800' },
-      submitted: { label: '申請中', className: 'bg-yellow-100 text-yellow-800' },
-      rejected: { label: '差戻し', className: 'bg-red-100 text-red-800' },
-      approved: { label: '承認済', className: 'bg-green-100 text-green-800' }
+    const badges: { [key: string]: { label: string; gradient: string } } = {
+      pending: { label: '未処理', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+      submitted: { label: '申請中', gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+      rejected: { label: '差戻し', gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' },
+      approved: { label: '承認済', gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }
     };
-    const badge = badges[status] || { label: status, className: 'bg-gray-100 text-gray-800' };
+    const badge = badges[status] || { label: status, gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' };
     return (
-      <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${badge.className}`}>
+      <span style={{
+        display: 'inline-block',
+        padding: '6px 16px',
+        fontSize: '0.75rem',
+        fontWeight: '700',
+        borderRadius: '20px',
+        background: badge.gradient,
+        color: 'white',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+      }}>
         {badge.label}
       </span>
     );
   };
 
   const getRoleBadge = (role: string) => {
-    const badges: { [key: string]: { label: string; className: string } } = {
-      admin: { label: '管理者', className: 'bg-purple-100 text-purple-800' },
-      user: { label: '一般', className: 'bg-blue-100 text-blue-800' },
-      approver: { label: '承認者', className: 'bg-green-100 text-green-800' }
+    const badges: { [key: string]: { label: string; gradient: string } } = {
+      admin: { label: '管理者', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+      user: { label: '一般', gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' },
+      approver: { label: '承認者', gradient: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' }
     };
-    const badge = badges[role] || { label: role, className: 'bg-gray-100 text-gray-800' };
+    const badge = badges[role] || { label: role, gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' };
     return (
-      <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${badge.className}`}>
+      <span style={{
+        display: 'inline-block',
+        padding: '6px 16px',
+        fontSize: '0.75rem',
+        fontWeight: '700',
+        borderRadius: '20px',
+        background: badge.gradient,
+        color: 'white',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+      }}>
         {badge.label}
       </span>
     );
@@ -143,193 +172,264 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div style={{ fontSize: '1.25rem' }}>読み込み中...</div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          color: 'white',
+          animation: 'pulse 2s ease-in-out infinite'
+        }}>
+          ✨ 読み込み中...
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '1.5rem' }}>
-      <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '2rem'
+    }}>
+      <div style={{ maxWidth: '90rem', margin: '0 auto' }} className="animate-fade-in-up">
         {/* ヘッダー */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', padding: '1.5rem', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="glass-card" style={{
+          padding: '2rem',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827' }}>ダッシュボード</h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <p style={{ color: '#4b5563' }}>ようこそ、{userName}さん</p>
+              <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
+                ダッシュボード
+              </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                <p style={{ color: 'white', fontSize: '1.1rem' }}>ようこそ、{userName}さん</p>
                 {getRoleBadge(userRole)}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => navigate("/transactions/new")} style={{ padding: "0.5rem 1rem", backgroundColor: "#10b981", color: "white", cursor: "pointer", border: "none", borderRadius: "0.375rem", marginRight: "1rem" }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => navigate("/transactions/new")}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
                 ➕ 新規取引
               </button>
               <button
                 onClick={() => navigate('/notifications')}
-                style={{ position: 'relative', padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}
+                style={{
+                  position: 'relative',
+                  padding: '12px 20px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#1e293b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontWeight: '600'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
                 🔔 通知
                 {unreadNotifications > 0 && (
                   <span style={{
                     position: 'absolute',
-                    top: '-0.25rem',
-                    right: '-0.25rem',
-                    backgroundColor: '#ef4444',
+                    top: '-8px',
+                    right: '-8px',
+                    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                     color: 'white',
                     fontSize: '0.75rem',
                     fontWeight: 'bold',
-                    borderRadius: '9999px',
-                    height: '1.25rem',
-                    width: '1.25rem',
+                    borderRadius: '50%',
+                    height: '24px',
+                    width: '24px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.2)',
+                    animation: 'pulse 2s ease-in-out infinite'
                   }}>
                     {unreadNotifications}
                   </span>
                 )}
               </button>
-              <button onClick={() => navigate('/unreported')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>
-                📋 未報告取引
-              </button>
-              <button onClick={() => navigate('/transactions')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>
-                📝 取引一覧
-              </button>
+              <button onClick={() => navigate('/unreported')} style={{ padding: '12px 20px', background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s ease', fontWeight: '600' }}>📋 未報告</button>
+              <button onClick={() => navigate('/transactions')} style={{ padding: '12px 20px', background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s ease', fontWeight: '600' }}>📝 取引一覧</button>
               {userRole === 'admin' && (
-                <button onClick={() => navigate('/user-management')} style={{ padding: '0.5rem 1rem', color: '#4b5563', cursor: 'pointer', border: 'none', background: 'none' }}>
-                  👥 ユーザー管理
-                </button>
+                <button onClick={() => navigate('/user-management')} style={{ padding: '12px 20px', background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s ease', fontWeight: '600' }}>👥 ユーザー管理</button>
               )}
-              <button onClick={handleLogout} style={{ padding: '0.5rem 1rem', color: '#dc2626', cursor: 'pointer', border: 'none', background: 'none' }}>
-                🔓 ログアウト
-              </button>
+              <button onClick={handleLogout} style={{ padding: '12px 20px', background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s ease', fontWeight: '600', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>🔓 ログアウト</button>
             </div>
           </div>
         </div>
 
         {/* 統計カード */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
           {/* 未処理 */}
-          <div style={{
-            background: 'linear-gradient(to bottom right, #dbeafe, #bfdbfe)',
-            borderRadius: '0.5rem',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            padding: '1.5rem',
-            borderLeft: '4px solid #3b82f6'
+          <div className="glass-card" style={{
+            padding: '2rem',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            borderLeft: '4px solid #667eea',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#2563eb' }}>未処理</p>
-                <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#1e3a8a' }}>{stats.pending}</p>
-              </div>
-              <div style={{ fontSize: '2.25rem' }}>📋</div>
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '6rem', opacity: 0.1 }}>📋</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>未処理</p>
+              <p style={{ fontSize: '3rem', fontWeight: '800', color: '#1e3a8a' }}>{stats.pending}</p>
             </div>
           </div>
 
           {/* 申請中 */}
-          <div style={{
-            background: 'linear-gradient(to bottom right, #fef3c7, #fde68a)',
-            borderRadius: '0.5rem',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            padding: '1.5rem',
-            borderLeft: '4px solid #eab308'
+          <div className="glass-card" style={{
+            padding: '2rem',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            borderLeft: '4px solid #f093fb',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#ca8a04' }}>申請中</p>
-                <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#713f12' }}>{stats.submitted}</p>
-              </div>
-              <div style={{ fontSize: '2.25rem' }}>⏳</div>
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '6rem', opacity: 0.1 }}>⏳</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#713f12', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>申請中</p>
+              <p style={{ fontSize: '3rem', fontWeight: '800', color: '#713f12' }}>{stats.submitted}</p>
             </div>
           </div>
 
           {/* 差戻し */}
-          <div style={{
-            background: 'linear-gradient(to bottom right, #fee2e2, #fecaca)',
-            borderRadius: '0.5rem',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            padding: '1.5rem',
-            borderLeft: '4px solid #ef4444'
+          <div className="glass-card" style={{
+            padding: '2rem',
+            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+            borderLeft: '4px solid #fa709a',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#dc2626' }}>差戻し</p>
-                <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#7f1d1d' }}>{stats.rejected}</p>
-              </div>
-              <div style={{ fontSize: '2.25rem' }}>↩️</div>
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '6rem', opacity: 0.1 }}>↩️</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#7f1d1d', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>差戻し</p>
+              <p style={{ fontSize: '3rem', fontWeight: '800', color: '#7f1d1d' }}>{stats.rejected}</p>
             </div>
           </div>
 
           {/* 承認済 */}
-          <div style={{
-            background: 'linear-gradient(to bottom right, #dcfce7, #bbf7d0)',
-            borderRadius: '0.5rem',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            padding: '1.5rem',
-            borderLeft: '4px solid #22c55e'
+          <div className="glass-card" style={{
+            padding: '2rem',
+            background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+            borderLeft: '4px solid #4facfe',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#16a34a' }}>承認済</p>
-                <p style={{ fontSize: '1.875rem', fontWeight: 'bold', color: '#14532d' }}>{stats.approved}</p>
-              </div>
-              <div style={{ fontSize: '2.25rem' }}>✅</div>
+            <div style={{ position: 'absolute', top: '-20px', right: '-20px', fontSize: '6rem', opacity: 0.1 }}>✅</div>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={{ fontSize: '0.875rem', fontWeight: '600', color: '#14532d', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem' }}>承認済</p>
+              <p style={{ fontSize: '3rem', fontWeight: '800', color: '#14532d' }}>{stats.approved}</p>
             </div>
           </div>
         </div>
 
         {/* 最新取引 */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', overflow: 'hidden' }}>
-          <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>最新の取引</h2>
+        <div className="glass-card" style={{ overflow: 'hidden' }}>
+          <div style={{ padding: '2rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--text-primary)' }}>✨ 最新の取引</h2>
           </div>
           {recentTransactions.length === 0 ? (
-            <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280' }}>
-              取引データがありません
+            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem', opacity: 0.3 }}>📭</div>
+              <p style={{ fontSize: '1.1rem' }}>取引データがありません</p>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: '#f9fafb' }}>
-                <tr>
-                  <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>取引日</th>
-                  <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>加盟店名</th>
-                  <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>金額</th>
-                  <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>ステータス</th>
-                  <th style={{ padding: '0.75rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>操作</th>
-                </tr>
-              </thead>
-              <tbody style={{ backgroundColor: 'white' }}>
-                {recentTransactions.map((transaction, index) => (
-                  <tr key={transaction.id} style={{ borderTop: index > 0 ? '1px solid #e5e7eb' : 'none' }}>
-                    <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap', fontSize: '0.875rem', color: '#111827' }}>
-                      {transaction.transactionDate}
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', color: '#111827' }}>
-                      {transaction.merchantName}
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap', fontSize: '0.875rem', color: '#111827' }}>
-                      ¥{transaction.amount.toLocaleString()}
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap' }}>
-                      {getStatusBadge(transaction.status)}
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>
-                      <button
-                        onClick={() => navigate("/transactions/" + transaction.id)}
-                        style={{ color: '#2563eb', cursor: 'pointer', border: 'none', background: 'none', textDecoration: 'none' }}
-                      >
-                        詳細
-                      </button>
-                    </td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                    <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>取引日</th>
+                    <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>店舗名</th>
+                    <th style={{ padding: '1rem 1.5rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>金額</th>
+                    <th style={{ padding: '1rem 1.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>ステータス</th>
+                    <th style={{ padding: '1rem 1.5rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>操作</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentTransactions.map((transaction, index) => (
+                    <tr
+                      key={transaction.id}
+                      style={{
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: '500' }}>
+                        {transaction.transactionDate}
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                        {transaction.merchantName}
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right', fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: '700' }}>
+                        ¥{transaction.amount.toLocaleString()}
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                        {getStatusBadge(transaction.status)}
+                      </td>
+                      <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                        <button
+                          onClick={() => navigate("/transactions/" + transaction.id)}
+                          style={{
+                            padding: '8px 20px',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '0.85rem',
+                            transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.15)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                          }}
+                        >
+                          詳細 →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.05); }
+        }
+      `}</style>
     </div>
   );
 };

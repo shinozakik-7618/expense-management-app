@@ -100,15 +100,25 @@ export default function UnreportedTransactions() {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: { [key: string]: { bg: string; text: string; label: string } } = {
-      pending: { bg: 'bg-blue-100', text: 'text-blue-800', label: '未処理' },
-      submitted: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '申請中' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', label: '差戻し' },
-      approved: { bg: 'bg-green-100', text: 'text-green-800', label: '承認済' }
+    const badges: { [key: string]: { gradient: string; label: string } } = {
+      pending: { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', label: '未処理' },
+      submitted: { gradient: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', label: '申請中' },
+      rejected: { gradient: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', label: '差戻し' },
+      approved: { gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', label: '承認済' }
     };
     const badge = badges[status] || badges.pending;
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.bg} ${badge.text}`}>
+      <span style={{
+        padding: '6px 16px',
+        fontSize: '0.875rem',
+        fontWeight: '700',
+        borderRadius: '20px',
+        background: badge.gradient,
+        color: 'white',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+      }}>
         {badge.label}
       </span>
     );
@@ -116,99 +126,178 @@ export default function UnreportedTransactions() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">読み込み中...</div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          color: 'white',
+          animation: 'pulse 2s ease-in-out infinite'
+        }}>
+          ✨ 読み込み中...
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '20px' }}>
-      <div className="max-w-7xl mx-auto px-8 py-8">
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '2rem'
+    }}>
+      <div style={{ maxWidth: '90rem', margin: '0 auto' }}>
         {/* ヘッダー */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">📋 未報告取引一覧</h1>
-            <p className="mt-2 text-sm text-gray-600">
-              使用報告が未提出の取引: {transactions.length}件
-            </p>
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-            >
-              📊 ダッシュボード
-            </button>
-            <button
-              onClick={() => navigate('/transactions')}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-            >
-              📝 取引一覧
-            </button>
+        <div className="glass-card" style={{
+          padding: '2rem',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <h1 className="gradient-text" style={{
+              fontSize: '2.5rem',
+              marginBottom: '0.5rem',
+              fontWeight: '800',
+              color: 'white',
+              textShadow: '0 0 30px rgba(255, 255, 255, 0.5)'
+            }}>
+              📋 未報告取引
+            </h1>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  padding: '12px 20px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#1e293b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontWeight: '600'
+                }}
+              >
+                📊 ダッシュボード
+              </button>
+              <button
+                onClick={() => navigate('/transactions')}
+                style={{
+                  padding: '12px 20px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#1e293b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontWeight: '600'
+                }}
+              >
+                📝 取引一覧
+              </button>
+            </div>
           </div>
         </div>
 
         {/* 未報告取引テーブル */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="glass-card" style={{ padding: '2rem' }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#1e293b',
+            marginBottom: '1.5rem'
+          }}>
+            未報告取引（{transactions.length}件）
+          </h2>
+          
           {transactions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              🎉 未報告の取引はありません
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#64748b',
+              fontSize: '1.1rem'
+            }}>
+              ✅ 未報告の取引はありません
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">取引日</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">加盟店名</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">金額</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">メモ</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">証憑</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ステータス</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>取引日</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>店舗（会社）名</th>
+                    <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>金額</th>
+                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>領収書</th>
+                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>ステータス</th>
+                    <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '700', color: '#1e293b', fontSize: '0.875rem', textTransform: 'uppercase' }}>操作</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {transactions.map((transaction) => (
-                    <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.transactionDate?.toDate()?.toLocaleDateString('ja-JP')}
+                <tbody>
+                  {transactions.map((tx) => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid #e2e8f0', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(102, 126, 234, 0.05)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ padding: '1rem', color: '#475569' }}>
+                        {tx.transactionDate?.toDate().toLocaleDateString('ja-JP')}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {transaction.merchantName}
+                      <td style={{ padding: '1rem', color: '#1e293b', fontWeight: '600' }}>
+                        {tx.merchantName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        ¥{transaction.amount?.toLocaleString()}
+                      <td style={{ padding: '1rem', textAlign: 'right', color: '#1e293b', fontWeight: '700' }}>
+                        ¥{tx.amount.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {transaction.memo || '-'}
+                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        <span style={{
+                          padding: '4px 12px',
+                          background: tx.receiptCount > 0 ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' : '#e2e8f0',
+                          color: tx.receiptCount > 0 ? 'white' : '#64748b',
+                          borderRadius: '12px',
+                          fontSize: '0.875rem',
+                          fontWeight: '600'
+                        }}>
+                          {tx.receiptCount > 0 ? `📎 ${tx.receiptCount}` : '－'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {transaction.receiptCount > 0 ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                            📎 {transaction.receiptCount}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">なし</span>
-                        )}
+                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        {getStatusBadge(tx.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(transaction.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex gap-2">
+                      <td style={{ padding: '1rem', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                           <button
-                            onClick={() => navigate(`/transactions/${transaction.id}`)}
-                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => navigate(`/transactions/${tx.id}`)}
+                            style={{
+                              padding: '8px 16px',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              fontSize: '0.875rem',
+                              transition: 'all 0.3s ease'
+                            }}
                           >
-                            詳細
+                            👁️ 詳細
                           </button>
                           <button
-                            onClick={() => handleMarkAsReported(transaction.id)}
-                            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                            onClick={() => handleMarkAsReported(tx.id)}
+                            style={{
+                              padding: '8px 16px',
+                              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                              fontSize: '0.875rem',
+                              transition: 'all 0.3s ease'
+                            }}
                           >
-                            報告済みにする
+                            ✅ 報告済みにする
                           </button>
                         </div>
                       </td>

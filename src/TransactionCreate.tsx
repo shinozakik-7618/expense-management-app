@@ -30,10 +30,19 @@ function TransactionCreate() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   useEffect(() => {
     loadCategories();
   }, []);
 
+
+  // videoタグにストリームを設定
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      console.log("useEffect: videoタグにストリームを設定");
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
   const loadCategories = async () => {
     try {
       const q = query(collection(db, 'categories'), orderBy('displayOrder'));
@@ -52,12 +61,35 @@ function TransactionCreate() {
   // カメラを起動
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
-      });
+      // まずバックカメラを試す
+      let mediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: { ideal: facingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+      } catch (backError) {
+        console.log("バックカメラ失敗、フロントカメラにフォールバック");
+        // バックカメラが使えない場合、フロントカメラを使用
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+        setFacingMode("user"); // フロントカメラに設定
+      }
+      
+      console.log("カメラストリーム:", mediaStream);
+      console.log("ビデオトラック:", mediaStream.getVideoTracks());
       setStream(mediaStream);
       setShowCamera(true);
       if (videoRef.current) {
+        console.log("videoRef.current存在:", !!videoRef.current);
+        console.log("ストリーム設定完了");
         videoRef.current.srcObject = mediaStream;
       }
     } catch (error) {
@@ -65,11 +97,16 @@ function TransactionCreate() {
       alert('カメラの起動に失敗しました');
     }
   };
-
   // 写真を撮影
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
+    console.log("capturePhoto呼び出し");
+    console.log("videoRef.current:", videoRef.current);
+    console.log("canvasRef.current:", canvasRef.current);
       const video = videoRef.current;
+      console.log("video.videoWidth:", video.videoWidth);
+      console.log("video.videoHeight:", video.videoHeight);
+      console.log("video.readyState:", video.readyState);
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -94,6 +131,43 @@ function TransactionCreate() {
       setStream(null);
     }
     setShowCamera(false);
+  };
+
+  // カメラを切り替え
+  const switchCamera = async () => {
+    const newFacingMode = facingMode === "environment" ? "user" : "environment";
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+    try {
+      let mediaStream;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: { ideal: newFacingMode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+        setFacingMode(newFacingMode);
+      } catch (error) {
+        console.log("カメラ切替失敗、利用可能なカメラを使用");
+        // 切り替えが失敗した場合、利用可能なカメラを使用
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+      }
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error("カメラ切り替えエラー:", error);
+      alert("カメラの切り替えに失敗しました");
+    }
   };
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -255,11 +329,14 @@ function TransactionCreate() {
           {/* カメラプレビュー */}
           {showCamera && (
             <div style={{ marginTop: '10px', background: '#000', borderRadius: '4px', padding: '10px' }}>
-              <video ref={videoRef} autoPlay playsInline style={{ width: '100%', borderRadius: '4px' }} />
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', borderRadius: '4px' }} />
               <canvas ref={canvasRef} style={{ display: 'none' }} />
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="button" onClick={capturePhoto} style={{ flex: 1, padding: '12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                   📸 撮影
+                </button>
+                <button type="button" onClick={switchCamera} style={{ flex: 1, padding: '12px', background: '#FF9800', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  🔄 カメラ切替
                 </button>
                 <button type="button" onClick={stopCamera} style={{ flex: 1, padding: '12px', background: '#F44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                   ✕ キャンセル

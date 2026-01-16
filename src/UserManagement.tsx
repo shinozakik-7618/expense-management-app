@@ -65,6 +65,8 @@ const UserManagement: React.FC = () => {
   // 現在のユーザー情報
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   useEffect(() => {
     loadData();
   }, []);
@@ -323,6 +325,12 @@ const UserManagement: React.FC = () => {
                 総ユーザー数: {users.length}名 / 表示中: {filteredUsers.length}名
               </p>
             </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                ➕ 新規ユーザー登録
+              </button>
             <div className="flex gap-4">
               <button
                 onClick={() => navigate('/dashboard')}
@@ -728,6 +736,33 @@ const UserManagement: React.FC = () => {
                 >
                   保存
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 新規作成モーダル */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">新規ユーザー登録</h2>
+              <p className="text-sm text-gray-600 mb-4">※ このフォームではFirebase Authenticationにユーザーを作成できません。</p>
+              <p className="text-sm text-blue-600 mb-4">Firebaseコンソールで先にユーザーを作成してから、このフォームでFirestore情報を追加してください。</p>
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900"
+                >
+                  閉じる
+                </button>
+                <a
+                  href="https://console.firebase.google.com/project/expense-management-pcdepot/authentication/users"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Firebaseコンソールを開く
+                </a>
               </div>
             </div>
           </div>

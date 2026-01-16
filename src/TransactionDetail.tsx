@@ -176,16 +176,17 @@ export default function TransactionDetail() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>取引詳細</h1>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0' }}>📄 取引詳細</h1>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
             onClick={() => navigate('/dashboard')}
             style={{
               padding: '12px 24px',
-              backgroundColor: '#6B7280',
-              color: 'white',
+              background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer'
@@ -197,8 +198,7 @@ export default function TransactionDetail() {
             onClick={() => navigate('/transactions')}
             style={{
               padding: '12px 24px',
-              backgroundColor: '#6B7280',
-              color: 'white',
+              background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer'
@@ -209,12 +209,7 @@ export default function TransactionDetail() {
         </div>
       </div>
 
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
+        <div className="glass-card" style={{ padding: '2rem' }}>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
             ステータス
@@ -376,5 +371,7 @@ export default function TransactionDetail() {
         </div>
       )}
     </div>
+        </div>
+      </div>
   );
 }

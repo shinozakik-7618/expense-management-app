@@ -308,7 +308,8 @@ function TransactionCreate() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <h1>新規取引登録</h1>
       <form onSubmit={handleSubmit} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         {/* 1. 領収書（JPEG形式） */}
@@ -414,8 +415,8 @@ function TransactionCreate() {
           <button type="button" onClick={() => navigate("/transactions")} style={{ padding: "12px 24px", background: "#6B7280", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>📝 取引一覧</button>
         </div>
       </form>
-    </div>
+        </div>
+      </div>
   );
 }
-
 export default TransactionCreate;

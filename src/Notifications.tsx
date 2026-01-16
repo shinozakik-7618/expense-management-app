@@ -109,13 +109,13 @@ const Notifications: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* ヘッダー */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">🔔 通知</h1>
+              <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🔔 通知</h1>
               <p className="text-gray-600 mt-1">
                 未読: {unreadCount}件 / 全体: {notifications.length}件
               </p>

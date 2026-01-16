@@ -305,20 +305,20 @@ const UserManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl">読み込み中...</div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white', animation: 'pulse 2s ease-in-out infinite' }}>✨ 読み込み中...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* ヘッダー */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
+              <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>👥 ユーザー管理</h1>
               <p className="text-gray-600 mt-1">
                 総ユーザー数: {users.length}名 / 表示中: {filteredUsers.length}名
               </p>
@@ -347,7 +347,7 @@ const UserManagement: React.FC = () => {
         </div>
 
         {/* フィルター・検索エリア */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* 検索ボックス */}
             <div>

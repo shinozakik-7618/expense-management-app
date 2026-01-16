@@ -89,8 +89,21 @@ const Notifications: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl">読み込み中...</div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{
+          fontSize: '1.5rem',
+          fontWeight: 'bold',
+          color: 'white',
+          animation: 'pulse 2s ease-in-out infinite'
+        }}>
+          ✨ 読み込み中...
+        </div>
       </div>
     );
   }

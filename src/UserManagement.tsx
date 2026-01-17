@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from './firebase';
 import { auth } from './firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
 interface User {
@@ -82,10 +82,16 @@ const UserManagement: React.FC = () => {
       // 現在のユーザー情報を取得
       const currentUserAuth = auth.currentUser;
       if (currentUserAuth) {
-        const userQuery = query(collection(db, 'users'), where('uid', '==', currentUserAuth.uid));
-        const userDoc = await getDocs(userQuery);
-        if (!userDoc.empty) {
-          setCurrentUser({ uid: currentUserAuth.uid, ...userDoc.docs[0].data() } as User);
+        const userRef = doc(db, 'users', currentUserAuth.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          setCurrentUser({ uid: currentUserAuth.uid, ...(userSnap.data() as any) } as User);
+        } else {
+          const userQuery = query(collection(db, 'users'), where('uid', '==', currentUserAuth.uid));
+          const userDoc = await getDocs(userQuery);
+          if (!userDoc.empty) {
+            setCurrentUser({ uid: currentUserAuth.uid, ...(userDoc.docs[0].data() as any) } as User);
+          }
         }
       }
 
@@ -325,13 +331,13 @@ const UserManagement: React.FC = () => {
                 総ユーザー数: {users.length}名 / 表示中: {filteredUsers.length}名
               </p>
             </div>
+            <div className="flex gap-4">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 ➕ 新規ユーザー登録
               </button>
-            <div className="flex gap-4">
               <button
                 onClick={() => navigate('/dashboard')}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900"

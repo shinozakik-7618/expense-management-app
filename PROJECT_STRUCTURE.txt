@@ -1,0 +1,9 @@
+.
+./admin-web
+./admin-web/node_modules
+./admin-web/public
+./admin-web/src
+./admin-web/src/assets
+./admin-web/src/pages
+./docs
+./firebase

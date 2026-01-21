@@ -104,38 +104,64 @@ export default function TransactionDetail() {
   };
 
   const handleApprove = async () => {
-    if (!id || !window.confirm('この取引を承認しますか？')) return;
+    if (!id || !transaction) return;
+
+    // ステータスチェック
+    if (transaction.status !== 'submitted') {
+      alert('申請中の取引のみ承認できます');
+      return;
+    }
+
+    if (!window.confirm('この取引を承認しますか？')) return;
 
     try {
       const docRef = doc(db, 'transactions', id);
       await updateDoc(docRef, {
         status: 'approved',
         approvedAt: Timestamp.now(),
+        rejectionReason: null,
+        rejectedAt: null,
         updatedAt: Timestamp.now()
       });
       alert('取引を承認しました');
       navigate('/transactions');
-    } catch (error) {
+    } catch (error: any) {
       console.error('承認に失敗:', error);
-      alert('承認に失敗しました');
+      alert(`承認に失敗しました: ${error?.message ?? String(error)}`);
     }
   };
 
   const handleReject = async () => {
-    const comment = window.prompt('差戻し理由を入力してください：');
-    if (!id || !comment) return;
+    if (!id || !transaction) return;
+
+    // ステータスチェック
+    if (transaction.status !== 'submitted') {
+      alert('申請中の取引のみ差戻しできます');
+      return;
+    }
+
+    const reason = window.prompt('差戻し理由を入力してください（必須）：');
+    if (reason == null) return;
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      alert('差戻し理由は必須です');
+      return;
+    }
 
     try {
       const docRef = doc(db, 'transactions', id);
       await updateDoc(docRef, {
         status: 'rejected',
+        rejectionReason: trimmed,
+        rejectedAt: Timestamp.now(),
+        approvedAt: null,
         updatedAt: Timestamp.now()
       });
       alert('取引を差戻しました');
       navigate('/transactions');
-    } catch (error) {
+    } catch (error: any) {
       console.error('差戻しに失敗:', error);
-      alert('差戻しに失敗しました');
+      alert(`差戻しに失敗しました: ${error?.message ?? String(error)}`);
     }
   };
 
@@ -303,7 +329,7 @@ export default function TransactionDetail() {
           )}
         </div>
 
-        {transaction.status === 'pending' && (
+        {(transaction.status === 'pending' || transaction.status === 'submitted') && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
             <button
               onClick={handleApprove}

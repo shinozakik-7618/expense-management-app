@@ -276,7 +276,7 @@ function TransactionCreate() {
         regionId: userRegionId || null,
         baseId: userBaseId || null,
         transactionDate: Timestamp.fromDate(new Date(formData.transactionDate)),
-        amount: parseInt(String(formData.amount).replace(/[^0-9]/g, "")) || 0,
+        amount: Number(formData.amount),
         merchantName: formData.merchantName,
         categoryId: formData.categoryId,
         memo: formData.memo,

@@ -228,7 +228,7 @@ export default function TransactionList() {
                   gap: '0.5rem'
                 }}
               >
-                ➕ 新規取引
+                ➕ 新規登録
               </button>
               <button
                 onClick={handleLogout}

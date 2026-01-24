@@ -15,14 +15,11 @@ exports.setUserRole = onRequest(async (req, res) => {
 
   try {
     const {uid, role} = req.body;
-
     if (!uid || !role) {
       res.status(400).send({error: "uid and role are required"});
       return;
     }
-
     await admin.auth().setCustomUserClaims(uid, {role});
-
     res.status(200).send({success: true, message: "Role set successfully"});
   } catch (error) {
     console.error("Error setting custom claims:", error);
@@ -74,6 +71,79 @@ exports.syncAllUserRoles = onRequest(async (req, res) => {
     });
   } catch (error) {
     console.error("Error syncing roles:", error);
+    res.status(500).send({error: error.message});
+  }
+});
+
+exports.migrateUsersToCorrectUID = onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Methods", "POST");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.status(204).send("");
+    return;
+  }
+
+  try {
+    const usersSnapshot = await admin.firestore().collection("users").get();
+    const results = [];
+    const errors = [];
+    const batch = admin.firestore().batch();
+    let batchCount = 0;
+
+    for (const doc of usersSnapshot.docs) {
+      const userData = doc.data();
+      const email = userData.email;
+      const oldDocId = doc.id;
+
+      if (!email) {
+        errors.push({docId: oldDocId, error: "No email found"});
+        continue;
+      }
+
+      try {
+        const userRecord = await admin.auth().getUserByEmail(email);
+        const correctUID = userRecord.uid;
+
+        if (oldDocId === correctUID) {
+          results.push({email, status: "already_correct", uid: correctUID});
+          continue;
+        }
+
+        const newDocRef = admin.firestore().collection("users").doc(correctUID);
+        const oldDocRef = admin.firestore().collection("users").doc(oldDocId);
+
+        batch.set(newDocRef, userData);
+        batch.delete(oldDocRef);
+        batchCount += 2;
+
+        if (batchCount >= 450) {
+          await batch.commit();
+          batchCount = 0;
+        }
+
+        results.push({email, oldDocId, newDocId: correctUID, status: "migrated"});
+      } catch (error) {
+        errors.push({email, oldDocId, error: error.message});
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Migration completed",
+      migrated: results.filter(r => r.status === "migrated").length,
+      alreadyCorrect: results.filter(r => r.status === "already_correct").length,
+      errors: errors.length,
+      results: results,
+      errorDetails: errors,
+    });
+  } catch (error) {
+    console.error("Error migrating users:", error);
     res.status(500).send({error: error.message});
   }
 });

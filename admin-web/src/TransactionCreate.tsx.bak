@@ -182,55 +182,43 @@ function TransactionCreate() {
     const urls = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(urls);
 
-    // 最初のファイルでOCR実行（PDF・画像両対応）
+    // 最初の画像でOCR実行
     if (files.length > 0) {
-      const file = files[0];
       setLoading(true);
       try {
-        let base64: string;
-
-        if (file.type === 'application/pdf') {
-          // PDFの場合：圧縮なしでbase64変換
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        } else {
-          // 画像の場合：圧縮してからbase64変換
-          const imageCompression = (await import('browser-image-compression')).default;
-          const options = {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-            initialQuality: 0.9
-          };
-          const compressedFile = await imageCompression(file, options);
-          base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(compressedFile);
-          });
-        }
-
-        const analyzeReceipt = httpsCallable(functions, 'analyzeReceipt');
-        const payload = file.type === 'application/pdf'
-          ? { image: base64, mimeType: 'application/pdf' }
-          : { image: base64 };
-        const result: any = await analyzeReceipt(payload);
-
-        if (result.data.success) {
-          const data = result.data.data;
-          setFormData(prev => ({
-            ...prev,
-            amount: data.amount ? data.amount.toLocaleString() : prev.amount,
-            merchantName: data.merchantName || prev.merchantName,
-            transactionDate: data.date || prev.transactionDate
-          }));
-          alert('領収書を自動認識しました！');
-        }
+        const imageCompression = (await import('browser-image-compression')).default;
+        
+        const file = files[0];
+        
+        // 画像圧縮オプション（品質90%、最大幅1920px）
+        const options = {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          initialQuality: 0.9
+        };
+        
+        // 画像を圧縮
+        const compressedFile = await imageCompression(file, options);
+        
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = (reader.result as string).split(',')[1];
+          const analyzeReceipt = httpsCallable(functions, 'analyzeReceipt');
+          const result: any = await analyzeReceipt({ image: base64 });
+          
+          if (result.data.success) {
+            const data = result.data.data;
+            setFormData(prev => ({
+              ...prev,
+              amount: data.amount ? data.amount.toLocaleString() : prev.amount,
+              merchantName: data.merchantName || prev.merchantName,
+              transactionDate: data.date || prev.transactionDate
+            }));
+            alert('領収書を自動認識しました！');
+          }
+        };
+        reader.readAsDataURL(compressedFile);
       } catch (error) {
         console.error('OCRエラー:', error);
         alert('領収書の認識に失敗しました');
@@ -331,15 +319,15 @@ function TransactionCreate() {
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
       <h1>新規取引登録</h1>
       <form onSubmit={handleSubmit} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        {/* 1. 領収書（JPEG・PDF形式） */}
+        {/* 1. 領収書（JPEG形式） */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>領収書（JPEG・PDF形式）</label>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>領収書（JPEG形式）</label>
           
           {/* ボタン */}
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '10px', marginBottom: '10px' }}>
             <label style={{ flex: 1, padding: '12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', textAlign: 'center', fontWeight: 'bold' }}>
               📁 ファイルを選択
-              <input type="file" accept="image/jpeg,image/jpg,image/png,application/pdf" multiple onChange={handleFileChange} style={{ display: 'none' }} />
+              <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={handleFileChange} style={{ display: 'none' }} />
             </label>
             <button type="button" onClick={startCamera} style={{ flex: 1, padding: '12px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               📷 カメラで撮影
@@ -370,14 +358,7 @@ function TransactionCreate() {
             <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
               {previewUrls.map((url, index) => (
                 <div key={index} style={{ position: 'relative' }}>
-                  {selectedFiles[index]?.type === 'application/pdf' ? (
-                    <div style={{ width: '100%', height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
-                      <span style={{ fontSize: '48px' }}>📄</span>
-                      <span style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>{selectedFiles[index]?.name}</span>
-                    </div>
-                  ) : (
-                    <img src={url} alt={`preview-${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }} />
-                  )}
+                  <img src={url} alt={`preview-${index}`} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: '4px' }} />
                   <button type="button" onClick={() => removeFile(index)} style={{ position: 'absolute', top: '5px', right: '5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }}>×</button>
                 </div>
               ))}

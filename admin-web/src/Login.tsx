@@ -16,7 +16,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // カスタムクレーム（role）を含む最新トークンを強制取得
+      await userCredential.user.getIdToken(true);
       navigate('/dashboard');
     } catch (err: any) {
       setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');

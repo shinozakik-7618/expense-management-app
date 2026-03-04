@@ -14,10 +14,8 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // カスタムクレーム（role）を含む最新トークンを強制取得
       await userCredential.user.getIdToken(true);
       navigate('/dashboard');
     } catch (err: any) {
@@ -29,139 +27,203 @@ export default function Login() {
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #2d2b55 100%)',
+      width: '100%',
+      fontFamily: "'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif",
     }}>
-      <div className="glass-card" style={{
-        padding: '3rem',
-        width: '100%',
-        maxWidth: '450px',
-        animation: 'fadeInUp 0.5s ease-out'
-      }}>
-        <h1 style={{ 
-          textAlign: 'center', 
-          marginBottom: '2rem',
-          fontSize: '2rem',
-          fontWeight: '800',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 30px rgba(102, 126, 234, 0.3)'
+
+      {/* ロゴ＋タイトル */}
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <div style={{
+          width: '72px',
+          height: '72px',
+          borderRadius: '20px',
+          background: 'linear-gradient(135deg, #7c5cbf 0%, #a855f7 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '36px',
+          margin: '0 auto 1.2rem auto',
+          boxShadow: '0 8px 32px rgba(168, 85, 247, 0.4)',
         }}>
-          💼 法人カード経費精算システム
+          💳
+        </div>
+        <h1 style={{
+          color: '#ffffff',
+          fontSize: '1.4rem',
+          fontWeight: '700',
+          margin: '0 0 0.4rem 0',
+          letterSpacing: '0.02em',
+        }}>
+          法人カード経費管理システム
         </h1>
-        
+        <p style={{
+          color: 'rgba(255,255,255,0.5)',
+          fontSize: '0.9rem',
+          margin: 0,
+        }}>
+          PC DEPOT Corp.
+        </p>
+      </div>
+
+      {/* ログインカード */}
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.07)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '16px',
+        padding: '2.5rem 2rem',
+        width: '100%',
+        maxWidth: '420px',
+        boxShadow: '0 8px 40px rgba(0, 0, 0, 0.4)',
+      }}>
         <form onSubmit={handleLogin}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: '600',
-              color: 'var(--text-primary)',
-              fontSize: '0.95rem'
+
+          {/* メールアドレス */}
+          <div style={{ marginBottom: '1.4rem' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: '0.9rem',
+              fontWeight: '500',
             }}>
-              📧 メールアドレス
+              メールアドレス
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="example@pcdepot.co.jp"
               required
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                fontSize: '16px',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
+                fontSize: '15px',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '10px',
                 boxSizing: 'border-box',
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: 'var(--text-primary)',
-                transition: 'all 0.3s ease'
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#ffffff',
+                outline: 'none',
+                transition: 'border-color 0.2s ease, background 0.2s ease',
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.target.style.borderColor = 'rgba(168, 85, 247, 0.7)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.12)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.08)';
               }}
             />
           </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontWeight: '600',
-              color: 'var(--text-primary)',
-              fontSize: '0.95rem'
+          {/* パスワード */}
+          <div style={{ marginBottom: '1.8rem' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: '0.9rem',
+              fontWeight: '500',
             }}>
-              🔒 パスワード
+              パスワード
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                fontSize: '16px',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
+                fontSize: '15px',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '10px',
                 boxSizing: 'border-box',
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: 'var(--text-primary)',
-                transition: 'all 0.3s ease'
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#ffffff',
+                outline: 'none',
+                transition: 'border-color 0.2s ease, background 0.2s ease',
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.target.style.borderColor = 'rgba(168, 85, 247, 0.7)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.12)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                e.target.style.background = 'rgba(255, 255, 255, 0.05)';
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.08)';
               }}
             />
           </div>
 
+          {/* エラー */}
           {error && (
             <div style={{
               padding: '12px 16px',
-              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
-              border: '2px solid rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
               color: '#fca5a5',
-              borderRadius: '8px',
-              marginBottom: '1.5rem',
-              fontSize: '0.9rem',
-              fontWeight: '600'
+              borderRadius: '10px',
+              marginBottom: '1.4rem',
+              fontSize: '0.875rem',
+              fontWeight: '500',
             }}>
               ⚠️ {error}
             </div>
           )}
 
+          {/* ログインボタン */}
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary"
             style={{
               width: '100%',
-              padding: '14px',
-              fontSize: '16px',
-              fontWeight: '700',
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer'
+              padding: '13px',
+              fontSize: '15px',
+              fontWeight: '600',
+              color: '#ffffff',
+              background: loading
+                ? 'rgba(168, 85, 247, 0.5)'
+                : 'linear-gradient(135deg, #7c5cbf 0%, #a855f7 60%, #ec4899 100%)',
+              border: 'none',
+              borderRadius: '10px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'opacity 0.2s ease, transform 0.1s ease',
+              letterSpacing: '0.04em',
+              boxShadow: loading ? 'none' : '0 4px 20px rgba(168, 85, 247, 0.4)',
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) (e.target as HTMLButtonElement).style.opacity = '0.9';
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) (e.target as HTMLButtonElement).style.opacity = '1';
             }}
           >
-            {loading ? '🔄 ログイン中...' : '🚀 ログイン'}
+            {loading ? 'ログイン中...' : 'ログイン →'}
           </button>
+
         </form>
       </div>
+
+      {/* フッター */}
+      <p style={{
+        marginTop: '2rem',
+        color: 'rgba(255,255,255,0.3)',
+        fontSize: '0.8rem',
+      }}>
+        © 2026 PC DEPOT Corp. All rights reserved.
+      </p>
+
     </div>
   );
 }

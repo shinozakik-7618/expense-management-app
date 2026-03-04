@@ -1,0 +1,355 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const Manual: React.FC = () => {
+  const navigate = useNavigate();
+  const [activeChapter, setActiveChapter] = useState<number>(0);
+
+  const bg: React.CSSProperties = {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #2d2b55 100%)',
+    fontFamily: "'Noto Sans JP', 'Segoe UI', sans-serif",
+    color: '#e2e8f0',
+    padding: '24px',
+  };
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.07)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '16px',
+    padding: '24px',
+    marginBottom: '20px',
+  };
+  const h1s: React.CSSProperties = {
+    fontSize: '26px', fontWeight: '700',
+    background: 'linear-gradient(135deg, #7c5cbf, #a855f7)',
+    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+    marginBottom: '6px',
+  };
+  const h2s: React.CSSProperties = {
+    fontSize: '18px', fontWeight: '700', color: '#a855f7',
+    borderLeft: '4px solid #a855f7', paddingLeft: '12px',
+    margin: '24px 0 14px',
+  };
+  const h3s: React.CSSProperties = {
+    fontSize: '15px', fontWeight: '600', color: '#c084fc',
+    margin: '16px 0 8px',
+  };
+  const hint: React.CSSProperties = {
+    background: 'rgba(168,85,247,0.12)',
+    border: '1px solid rgba(168,85,247,0.3)',
+    borderRadius: '8px', padding: '12px 16px',
+    margin: '12px 0', fontSize: '14px',
+  };
+  const warn: React.CSSProperties = {
+    background: 'rgba(251,191,36,0.1)',
+    border: '1px solid rgba(251,191,36,0.3)',
+    borderRadius: '8px', padding: '12px 16px',
+    margin: '12px 0', fontSize: '14px',
+  };
+  const tbl: React.CSSProperties = {
+    width: '100%', borderCollapse: 'collapse',
+    fontSize: '14px', margin: '12px 0',
+  };
+  const th: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.08)', padding: '10px 14px',
+    textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.1)',
+    fontWeight: '600', color: '#c084fc',
+  };
+  const td: React.CSSProperties = {
+    padding: '10px 14px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    color: '#e2e8f0',
+  };
+  const btnBack: React.CSSProperties = {
+    padding: '10px 20px',
+    background: 'rgba(255,255,255,0.1)',
+    color: '#e2e8f0',
+    border: '1px solid rgba(255,255,255,0.2)',
+    borderRadius: '8px', cursor: 'pointer',
+    fontWeight: '600', fontSize: '14px', marginBottom: '24px',
+  };
+  const tocBtn = (i: number): React.CSSProperties => ({
+    display: 'block', width: '100%', textAlign: 'left',
+    padding: '10px 16px',
+    background: activeChapter === i ? 'rgba(168,85,247,0.25)' : 'rgba(255,255,255,0.04)',
+    border: activeChapter === i ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    color: activeChapter === i ? '#c084fc' : '#e2e8f0',
+    cursor: 'pointer',
+    fontWeight: activeChapter === i ? '700' : '400',
+    fontSize: '14px', marginBottom: '6px',
+  });
+
+  const chapters = [
+    '第1章 システム概要',
+    '第2章 ログイン・ログアウト',
+    '第3章 ダッシュボード',
+    '第4章 取引管理',
+    '第5章 取引インポート',
+    '第6章 未報告取引',
+    '第7章 カード照合',
+    '第8章 通知機能',
+    '第9章 ユーザー管理',
+    '第10章 カテゴリ管理',
+    '第11章 招待受諾',
+    '第12章 FAQ',
+  ];
+
+  const renderChapter = () => {
+    switch (activeChapter) {
+      case 0: return (
+        <div>
+          <h2 style={h2s}>第1章 システム概要</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>
+            PC DEPOT Corp. 法人カード経費管理システムは、役員・社員が利用する法人クレジットカードの取引を一元管理し、経費精算業務を効率化するためのWebアプリケーションです。
+          </p>
+          <h3 style={h3s}>主な機能</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>機能</th><th style={th}>説明</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>取引管理</td><td style={td}>法人カード取引の登録・編集・削除・検索</td></tr>
+            <tr><td style={td}>取引インポート</td><td style={td}>CSVファイルから取引データを一括登録</td></tr>
+            <tr><td style={td}>未報告取引</td><td style={td}>経費報告書未提出の取引を一覧表示・管理</td></tr>
+            <tr><td style={td}>カード照合</td><td style={td}>カード明細と登録データの突合確認（管理者向け）</td></tr>
+            <tr><td style={td}>通知</td><td style={td}>期限アラート・承認通知・システムメッセージ</td></tr>
+            <tr><td style={td}>ユーザー管理</td><td style={td}>社員アカウントの作成・権限設定（管理者向け）</td></tr>
+            <tr><td style={td}>カテゴリ管理</td><td style={td}>経費カテゴリのカスタマイズ（管理者向け）</td></tr>
+          </tbody></table>
+          <h3 style={h3s}>権限一覧</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>権限</th><th style={th}>利用可能機能</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>管理者 (admin)</td><td style={td}>全機能（ユーザー管理・カード照合含む）</td></tr>
+            <tr><td style={td}>一般ユーザー (user)</td><td style={td}>自分の取引管理・未報告取引・通知</td></tr>
+          </tbody></table>
+          <div style={hint}>ヒント：初めて利用する場合は、管理者から招待メールが届きます。メール内のリンクからアカウントを設定してください。</div>
+        </div>
+      );
+      case 1: return (
+        <div>
+          <h2 style={h2s}>第2章 ログイン・ログアウト</h2>
+          <h3 style={h3s}>ログイン手順</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>ブラウザで <strong style={{ color: '#a855f7' }}>https://expense-management-pcdepot.web.app</strong> にアクセス</li>
+            <li>メールアドレスとパスワードを入力</li>
+            <li>「ログイン」ボタンをクリック</li>
+            <li>ダッシュボードが表示されたらログイン完了</li>
+          </ol>
+          <div style={warn}>注意：パスワードを忘れた場合は「パスワードを忘れた方はこちら」リンクからリセットメールを送信してください。</div>
+          <h3 style={h3s}>ログアウト手順</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>ダッシュボード右上の「ログアウト」ボタンをクリック</li>
+            <li>ログイン画面に戻ればログアウト完了</li>
+          </ol>
+        </div>
+      );
+      case 2: return (
+        <div>
+          <h2 style={h2s}>第3章 ダッシュボード</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>ログイン後に表示されるメイン画面です。取引状況のサマリーと各機能へのナビゲーションが配置されています。</p>
+          <h3 style={h3s}>表示内容</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>項目</th><th style={th}>内容</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>今月の取引合計</td><td style={td}>当月の取引金額合計</td></tr>
+            <tr><td style={td}>未報告件数</td><td style={td}>経費報告書未提出の取引件数</td></tr>
+            <tr><td style={td}>今月の取引件数</td><td style={td}>当月の取引登録件数</td></tr>
+            <tr><td style={td}>最近の取引</td><td style={td}>直近5件の取引一覧</td></tr>
+          </tbody></table>
+          <h3 style={h3s}>ナビゲーションボタン</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>ボタン</th><th style={th}>機能</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>新規取引</td><td style={td}>新しい取引を手動登録</td></tr>
+            <tr><td style={td}>用途管理</td><td style={td}>カテゴリ管理画面へ移動</td></tr>
+            <tr><td style={td}>未報告</td><td style={td}>未報告取引一覧へ移動</td></tr>
+            <tr><td style={td}>取引一覧</td><td style={td}>全取引の一覧へ移動</td></tr>
+            <tr><td style={td}>通知</td><td style={td}>通知一覧へ移動</td></tr>
+            <tr><td style={td}>ユーザー管理</td><td style={td}>ユーザー管理画面へ移動（管理者のみ）</td></tr>
+            <tr><td style={td}>マニュアル</td><td style={td}>このマニュアルを表示</td></tr>
+            <tr><td style={td}>ログアウト</td><td style={td}>ログアウト</td></tr>
+          </tbody></table>
+        </div>
+      );
+      case 3: return (
+        <div>
+          <h2 style={h2s}>第4章 取引管理</h2>
+          <h3 style={h3s}>取引一覧の表示</h3>
+          <p style={{ lineHeight: '1.8' }}>「取引一覧」ボタンから全取引を確認できます。検索・フィルター機能で絞り込みが可能です。</p>
+          <h3 style={h3s}>新規取引の登録</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>「新規取引」ボタンをクリック</li>
+            <li>取引日・金額・カテゴリ・メモを入力</li>
+            <li>レシート画像をアップロード（任意）</li>
+            <li>「保存」をクリック</li>
+          </ol>
+          <h3 style={h3s}>取引の編集・削除</h3>
+          <p style={{ lineHeight: '1.8' }}>取引一覧から対象行をクリックして詳細画面を開き、「編集」または「削除」ボタンを操作します。</p>
+          <div style={warn}>注意：削除した取引は復元できません。誤操作に注意してください。</div>
+        </div>
+      );
+      case 4: return (
+        <div>
+          <h2 style={h2s}>第5章 取引インポート</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>CSVファイルを使って複数の取引データを一括で登録できます。</p>
+          <h3 style={h3s}>CSVフォーマット</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>列名</th><th style={th}>形式</th><th style={th}>必須</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>date</td><td style={td}>YYYY-MM-DD</td><td style={td}>必須</td></tr>
+            <tr><td style={td}>amount</td><td style={td}>整数（円）</td><td style={td}>必須</td></tr>
+            <tr><td style={td}>category</td><td style={td}>カテゴリ名</td><td style={td}>必須</td></tr>
+            <tr><td style={td}>description</td><td style={td}>テキスト</td><td style={td}>任意</td></tr>
+            <tr><td style={td}>merchant</td><td style={td}>テキスト</td><td style={td}>任意</td></tr>
+          </tbody></table>
+          <h3 style={h3s}>インポート手順</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>取引一覧画面の「CSVインポート」ボタンをクリック</li>
+            <li>CSVファイルを選択またはドラッグ＆ドロップ</li>
+            <li>プレビューで内容を確認</li>
+            <li>「インポート実行」をクリック</li>
+          </ol>
+          <div style={hint}>ヒント：カード会社のWebサービスから明細CSVをダウンロードし、列名を上記フォーマットに変換することで手入力を大幅に削減できます。</div>
+        </div>
+      );
+      case 5: return (
+        <div>
+          <h2 style={h2s}>第6章 未報告取引</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>経費報告書をまだ提出していない取引の一覧を管理します。</p>
+          <h3 style={h3s}>未報告取引の確認</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>ダッシュボードの「未報告」ボタンをクリック</li>
+            <li>未報告取引の一覧が表示される</li>
+            <li>各取引を確認し、経費報告書を作成</li>
+          </ol>
+          <h3 style={h3s}>報告済みへの変更</h3>
+          <p style={{ lineHeight: '1.8' }}>取引詳細画面で「報告済みとしてマーク」ボタンをクリックすると、未報告リストから除外されます。</p>
+          <div style={warn}>注意：月次の経費精算締め日までに全件の報告を完了してください。</div>
+        </div>
+      );
+      case 6: return (
+        <div>
+          <h2 style={h2s}>第7章 カード照合</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者向けの機能です。カード会社から提供される明細と、システムに登録されたデータを突合します。</p>
+          <h3 style={h3s}>照合手順</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>ダッシュボードのナビゲーションから「カード照合」へ移動</li>
+            <li>カード明細CSVをアップロード</li>
+            <li>システムの登録データと自動マッチング</li>
+            <li>未一致の取引を手動で確認・処理</li>
+          </ol>
+          <div style={hint}>ヒント：照合は月次で実施することを推奨します。差異が見つかった場合は取引の修正または追加登録を行ってください。</div>
+        </div>
+      );
+      case 7: return (
+        <div>
+          <h2 style={h2s}>第8章 通知機能</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>システムからの重要なお知らせや期限アラートを確認できます。</p>
+          <h3 style={h3s}>通知の種類</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>種類</th><th style={th}>内容</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>期限アラート</td><td style={td}>経費報告締め日が近づいたときの通知</td></tr>
+            <tr><td style={td}>承認通知</td><td style={td}>管理者による取引承認・却下の通知</td></tr>
+            <tr><td style={td}>システム通知</td><td style={td}>メンテナンスや機能更新のお知らせ</td></tr>
+          </tbody></table>
+          <h3 style={h3s}>通知の確認</h3>
+          <p style={{ lineHeight: '1.8' }}>ダッシュボードの「通知」ボタンをクリックして通知一覧を確認します。未読通知はバッジで件数が表示されます。</p>
+        </div>
+      );
+      case 8: return (
+        <div>
+          <h2 style={h2s}>第9章 ユーザー管理</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者向けの機能です。社員アカウントの作成・編集・権限設定を行います。</p>
+          <h3 style={h3s}>新規ユーザーの招待</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>「ユーザー管理」をクリック</li>
+            <li>「新規招待」ボタンをクリック</li>
+            <li>招待先のメールアドレスと権限を設定</li>
+            <li>「招待メール送信」をクリック</li>
+          </ol>
+          <h3 style={h3s}>権限の変更</h3>
+          <p style={{ lineHeight: '1.8' }}>ユーザー一覧から対象ユーザーを選択し、「編集」から権限（admin / user）を変更できます。</p>
+          <div style={warn}>注意：管理者権限は必要な担当者のみに付与し、定期的に見直してください。</div>
+        </div>
+      );
+      case 9: return (
+        <div>
+          <h2 style={h2s}>第10章 カテゴリ管理</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>取引に割り当てる経費カテゴリをカスタマイズできます。</p>
+          <h3 style={h3s}>カテゴリの追加</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>「用途管理」をクリック</li>
+            <li>「カテゴリ追加」ボタンをクリック</li>
+            <li>カテゴリ名・色・アイコンを設定</li>
+            <li>「保存」をクリック</li>
+          </ol>
+          <h3 style={h3s}>デフォルトカテゴリ</h3>
+          <table style={tbl}><thead><tr>
+            <th style={th}>カテゴリ</th><th style={th}>用途例</th>
+          </tr></thead><tbody>
+            <tr><td style={td}>交通費</td><td style={td}>電車・タクシー・駐車場</td></tr>
+            <tr><td style={td}>飲食費</td><td style={td}>接待・社内会食</td></tr>
+            <tr><td style={td}>宿泊費</td><td style={td}>出張時のホテル</td></tr>
+            <tr><td style={td}>消耗品</td><td style={td}>文具・事務用品</td></tr>
+            <tr><td style={td}>その他</td><td style={td}>上記に該当しない経費</td></tr>
+          </tbody></table>
+        </div>
+      );
+      case 10: return (
+        <div>
+          <h2 style={h2s}>第11章 招待受諾</h2>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者から招待メールを受け取った新規ユーザーのためのガイドです。</p>
+          <h3 style={h3s}>アカウント設定手順</h3>
+          <ol style={{ lineHeight: '2', paddingLeft: '20px' }}>
+            <li>招待メールを受信し、メール内の「アカウント設定」リンクをクリック</li>
+            <li>パスワードを設定（8文字以上、英数字混在）</li>
+            <li>「アカウントを作成」ボタンをクリック</li>
+            <li>ログイン画面からメールアドレスと設定したパスワードでログイン</li>
+          </ol>
+          <div style={hint}>ヒント：招待リンクの有効期限は24時間です。期限が切れた場合は管理者に再送を依頼してください。</div>
+        </div>
+      );
+      case 11: return (
+        <div>
+          <h2 style={h2s}>第12章 よくある質問（FAQ）</h2>
+          <h3 style={h3s}>Q. パスワードを忘れてしまった</h3>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>ログイン画面の「パスワードを忘れた方はこちら」からパスワードリセットメールを送信できます。</p>
+          <h3 style={h3s}>Q. 取引が表示されない</h3>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>検索フィルターや期間設定を確認してください。期間を「全期間」に設定するか、フィルターをリセットすると表示されることがあります。</p>
+          <h3 style={h3s}>Q. CSVインポートでエラーが出る</h3>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>CSVのエンコードがUTF-8であること、列名が正しいこと、日付形式がYYYY-MM-DDであることを確認してください。</p>
+          <h3 style={h3s}>Q. 管理者機能が表示されない</h3>
+          <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者権限（admin）が付与されているか確認してください。権限の変更は他の管理者に依頼してください。</p>
+          <div style={hint}>その他のお問い合わせ：システム管理担当者または IT 部門までご連絡ください。</div>
+        </div>
+      );
+      default: return null;
+    }
+  };
+
+  return (
+    <div style={bg}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <button style={btnBack} onClick={() => navigate('/dashboard')}>&larr; ダッシュボードに戻る</button>
+        <div style={card}>
+          <h1 style={h1s}>PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル</h1>
+          <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>v1.0</p>
+        </div>
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+          <div style={{ ...card, width: '240px', flexShrink: 0, marginBottom: 0 }}>
+            <p style={{ color: '#c084fc', fontWeight: '700', fontSize: '13px', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '1px' }}>目次</p>
+            {chapters.map((ch, i) => (
+              <button key={i} style={tocBtn(i)} onClick={() => setActiveChapter(i)}>{ch}</button>
+            ))}
+          </div>
+          <div style={{ ...card, flex: 1, marginBottom: 0 }}>{renderChapter()}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Manual;

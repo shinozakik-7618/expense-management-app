@@ -12,6 +12,7 @@ import UserManagement from './UserManagement';
 import CardReconciliation from './CardReconciliation';
 import Notifications from './Notifications';
 import InviteAccept from "./InviteAccept";
+import Manual from './Manual';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
         <Route path="/reconciliation/card" element={<CardReconciliation />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/invite-accept" element={<InviteAccept />} />
+        <Route path="/manual" element={<Manual />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>

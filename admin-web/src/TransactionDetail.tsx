@@ -5,23 +5,15 @@ import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 
 interface Transaction {
-  id: string;
-  transactionDate: any;
-  amount: number;
-  merchantName: string;
-  categoryId?: string;
-  memo?: string;
-  status: string;
-  receiptCount: number;
+  id: string; transactionDate: any; amount: number; merchantName: string;
+  categoryId?: string; memo?: string; status: string; receiptCount: number;
+}
+interface Receipt {
+  id: string; fileName: string; downloadURL: string; storagePath: string; fileSize: number;
 }
 
-interface Receipt {
-  id: string;
-  fileName: string;
-  downloadURL: string;
-  storagePath: string;
-  fileSize: number;
-}
+const card = { background:'rgba(255,255,255,0.07)', backdropFilter:'blur(20px)', WebkitBackdropFilter:'blur(20px)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'16px' };
+const btnNav = { padding:'10px 18px', background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'8px', cursor:'pointer', fontWeight:'600' as const };
 
 export default function TransactionDetail() {
   const navigate = useNavigate();
@@ -32,10 +24,7 @@ export default function TransactionDetail() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      loadTransaction(id);
-      loadReceipts(id);
-    }
+    if (id) { loadTransaction(id); loadReceipts(id); }
   }, [id]);
 
   const loadTransaction = async (transactionId: string) => {
@@ -43,335 +32,149 @@ export default function TransactionDetail() {
       setLoading(true);
       const docRef = doc(db, 'transactions', transactionId);
       const docSnap = await getDoc(docRef);
-      
       if (docSnap.exists()) {
         setTransaction({ id: docSnap.id, ...docSnap.data() } as Transaction);
       } else {
-        alert('取引が見つかりません');
-        navigate('/transactions');
+        alert('取引が見つかりません'); navigate('/transactions');
       }
     } catch (error) {
-      console.error('取引の取得に失敗:', error);
-      alert('取引の取得に失敗しました');
-    } finally {
-      setLoading(false);
-    }
+      console.error('取引の取得に失敗:', error); alert('取引の取得に失敗しました');
+    } finally { setLoading(false); }
   };
 
   const loadReceipts = async (transactionId: string) => {
     try {
       const q = query(collection(db, 'receipts'), where('transactionId', '==', transactionId));
       const snapshot = await getDocs(q);
-      
       const data: Receipt[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() } as Receipt);
-      });
-      
+      snapshot.forEach((doc) => { data.push({ id: doc.id, ...doc.data() } as Receipt); });
       setReceipts(data);
-    } catch (error) {
-      console.error('証憑の取得に失敗:', error);
-    }
+    } catch (error) { console.error('証憑の取得に失敗:', error); }
   };
 
   const handleDeleteReceipt = async (receipt: Receipt) => {
     if (!window.confirm('この証憑を削除しますか？')) return;
-
     try {
-      // Storageから削除
-      const storageRef = ref(storage, receipt.storagePath);
-      await deleteObject(storageRef);
-
-      // Firestoreから削除
+      await deleteObject(ref(storage, receipt.storagePath));
       await deleteDoc(doc(db, 'receipts', receipt.id));
-
-      // 取引のreceiptCountを更新
-      if (id) {
-        const transactionRef = doc(db, 'transactions', id);
-        await updateDoc(transactionRef, {
-          receiptCount: receipts.length - 1,
-          updatedAt: Timestamp.now()
-        });
-      }
-
-      alert('証憑を削除しました');
-      loadReceipts(id!);
-      loadTransaction(id!);
-    } catch (error) {
-      console.error('証憑の削除に失敗:', error);
-      alert('証憑の削除に失敗しました');
-    }
+      if (id) await updateDoc(doc(db, 'transactions', id), { receiptCount: receipts.length - 1, updatedAt: Timestamp.now() });
+      alert('証憑を削除しました'); loadReceipts(id!); loadTransaction(id!);
+    } catch (error) { console.error('証憑の削除に失敗:', error); alert('証憑の削除に失敗しました'); }
   };
 
   const handleApprove = async () => {
     if (!id || !window.confirm('この取引を承認しますか？')) return;
-
     try {
-      const docRef = doc(db, 'transactions', id);
-      await updateDoc(docRef, {
-        status: 'approved',
-        approvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      });
-      alert('取引を承認しました');
-      navigate('/transactions');
-    } catch (error) {
-      console.error('承認に失敗:', error);
-      alert('承認に失敗しました');
-    }
+      await updateDoc(doc(db, 'transactions', id), { status: 'approved', approvedAt: Timestamp.now(), updatedAt: Timestamp.now() });
+      alert('取引を承認しました'); navigate('/transactions');
+    } catch (error) { console.error('承認に失敗:', error); alert('承認に失敗しました'); }
   };
 
   const handleReject = async () => {
     const comment = window.prompt('差戻し理由を入力してください：');
     if (!id || !comment) return;
-
     try {
-      const docRef = doc(db, 'transactions', id);
-      await updateDoc(docRef, {
-        status: 'rejected',
-        updatedAt: Timestamp.now()
-      });
-      alert('取引を差戻しました');
-      navigate('/transactions');
-    } catch (error) {
-      console.error('差戻しに失敗:', error);
-      alert('差戻しに失敗しました');
-    }
+      await updateDoc(doc(db, 'transactions', id), { status: 'rejected', updatedAt: Timestamp.now() });
+      alert('取引を差戻しました'); navigate('/transactions');
+    } catch (error) { console.error('差戻しに失敗:', error); alert('差戻しに失敗しました'); }
   };
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, { bg: string; color: string; text: string }> = {
-      pending: { bg: '#fff3cd', color: '#856404', text: '未処理' },
-      submitted: { bg: '#d1ecf1', color: '#0c5460', text: '申請中' },
-      rejected: { bg: '#f8d7da', color: '#721c24', text: '差戻し' },
-      approved: { bg: '#d4edda', color: '#155724', text: '承認済' }
+    const map: Record<string, { bg: string; color: string; border: string; text: string }> = {
+      pending:   { bg:'rgba(102,126,234,0.15)', color:'#a5b4fc', border:'rgba(102,126,234,0.4)', text:'未処理' },
+      submitted: { bg:'rgba(240,147,251,0.15)', color:'#f0abfc', border:'rgba(240,147,251,0.4)', text:'申請中' },
+      rejected:  { bg:'rgba(250,112,154,0.15)', color:'#fda4af', border:'rgba(250,112,154,0.4)', text:'差戻し' },
+      approved:  { bg:'rgba(79,172,254,0.15)',  color:'#7dd3fc', border:'rgba(79,172,254,0.4)',  text:'承認済' }
     };
-    
-    const style = styles[status] || styles.pending;
-    
-    return (
-      <span style={{
-        padding: '6px 16px',
-        borderRadius: '12px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        backgroundColor: style.bg,
-        color: style.color
-      }}>
-        {style.text}
-      </span>
-    );
+    const s = map[status] || map.pending;
+    return <span style={{ padding:'6px 16px', borderRadius:'12px', fontSize:'14px', fontWeight:'bold', background:s.bg, color:s.color, border:`1px solid ${s.border}` }}>{s.text}</span>;
   };
 
-  if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>読み込み中...</p>
-      </div>
-    );
-  }
+  const labelStyle = { display:'block', marginBottom:'6px', color:'rgba(255,255,255,0.55)', fontSize:'13px', fontWeight:'500' as const };
+  const valueStyle = { fontSize:'15px', color:'white', fontWeight:'500' as const };
 
-  if (!transaction) {
-    return null;
-  }
+  if (loading) return (
+    <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#2d2b55 100%)' }}>
+      <div style={{ fontSize:'1.5rem', fontWeight:'bold', color:'white' }}>✨ 読み込み中...</div>
+    </div>
+  );
+
+  if (!transaction) return null;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '2rem' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 className="gradient-text" style={{ fontSize: '2.5rem', marginBottom: '0' }}>📄 取引詳細</h1>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button 
-            onClick={() => navigate('/dashboard')}
-            style={{
-              padding: '12px 24px',
-              background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            📊 ダッシュボード
-          </button>
-          <button 
-            onClick={() => navigate('/transactions')}
-            style={{
-              padding: '12px 24px',
-              background: 'rgba(255, 255, 255, 0.1)', color: '#1e293b',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            📝 取引一覧
-          </button>
-        </div>
-      </div>
-
-        <div className="glass-card" style={{ padding: '2rem' }}>
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
-            ステータス
-          </label>
-          {getStatusBadge(transaction.status)}
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
-            取引日
-          </label>
-          <div style={{ fontSize: '16px' }}>
-            {transaction.transactionDate?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
-            金額
-          </label>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#007bff' }}>
-            ¥{transaction.amount.toLocaleString()}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
-            加盟店名
-          </label>
-          <div style={{ fontSize: '16px' }}>
-            {transaction.merchantName}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', color: '#666', fontSize: '14px' }}>
-            メモ
-          </label>
-          <div style={{ fontSize: '16px' }}>
-            {transaction.memo || '-'}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '10px', color: '#666', fontSize: '14px' }}>
-            証憑画像（{receipts.length}件）
-          </label>
-          {receipts.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
-              {receipts.map((receipt) => (
-                <div key={receipt.id} style={{ position: 'relative' }}>
-                  <img 
-                    src={receipt.downloadURL} 
-                    alt={receipt.fileName}
-                    onClick={() => setSelectedImage(receipt.downloadURL)}
-                    style={{ 
-                      width: '100%', 
-                      height: '150px', 
-                      objectFit: 'cover', 
-                      borderRadius: '4px',
-                      border: '1px solid #ddd',
-                      cursor: 'pointer'
-                    }} 
-                  />
-                  <button
-                    onClick={() => handleDeleteReceipt(receipt)}
-                    style={{
-                      position: 'absolute',
-                      top: '5px',
-                      right: '5px',
-                      backgroundColor: 'rgba(220, 53, 69, 0.9)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '24px',
-                      height: '24px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      lineHeight: '1'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#2d2b55 100%)', padding:'2rem' }}>
+      <div style={{ maxWidth:'800px', margin:'0 auto' }}>
+        {/* ヘッダー */}
+        <div style={{ ...card, padding:'1.5rem 2rem', marginBottom:'1.5rem' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'1rem' }}>
+            <h1 style={{ fontSize:'2rem', fontWeight:'800', color:'white', margin:0 }}>📄 取引詳細</h1>
+            <div style={{ display:'flex', gap:'0.6rem' }}>
+              <button onClick={() => navigate('/dashboard')} style={btnNav}>📊 ダッシュボード</button>
+              <button onClick={() => navigate('/transactions')} style={btnNav}>📝 取引一覧</button>
             </div>
-          ) : (
-            <div style={{ color: '#666', fontSize: '14px' }}>
-              証憑画像がありません
+          </div>
+        </div>
+
+        {/* 詳細カード */}
+        <div style={{ ...card, padding:'2rem' }}>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>ステータス</label>
+            {getStatusBadge(transaction.status)}
+          </div>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>取引日</label>
+            <div style={valueStyle}>{transaction.transactionDate?.toDate?.()?.toLocaleDateString('ja-JP') || '-'}</div>
+          </div>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>金額</label>
+            <div style={{ fontSize:'28px', fontWeight:'800', color:'#c4b5fd' }}>¥{transaction.amount.toLocaleString()}</div>
+          </div>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>加盟店名</label>
+            <div style={valueStyle}>{transaction.merchantName}</div>
+          </div>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>メモ</label>
+            <div style={{ ...valueStyle, color:'rgba(255,255,255,0.7)' }}>{transaction.memo || '-'}</div>
+          </div>
+
+          {/* 証憑 */}
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>証憑画像（{receipts.length}件）</label>
+            {receipts.length > 0 ? (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:'10px' }}>
+                {receipts.map((receipt) => (
+                  <div key={receipt.id} style={{ position:'relative' }}>
+                    <img src={receipt.downloadURL} alt={receipt.fileName}
+                      onClick={() => setSelectedImage(receipt.downloadURL)}
+                      style={{ width:'100%', height:'140px', objectFit:'cover', borderRadius:'8px', border:'1px solid rgba(255,255,255,0.15)', cursor:'pointer' }} />
+                    <button onClick={() => handleDeleteReceipt(receipt)}
+                      style={{ position:'absolute', top:'5px', right:'5px', background:'rgba(220,38,38,0.85)', color:'white', border:'none', borderRadius:'50%', width:'24px', height:'24px', cursor:'pointer', fontSize:'14px', lineHeight:'1', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color:'rgba(255,255,255,0.35)', fontSize:'14px' }}>証憑画像がありません</div>
+            )}
+          </div>
+
+          {/* 承認・差戻しボタン */}
+          {transaction.status === 'pending' && (
+            <div style={{ display:'flex', gap:'12px', marginTop:'24px' }}>
+              <button onClick={handleApprove} style={{ flex:1, padding:'12px', fontSize:'15px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(79,172,254,0.3)' }}>✅ 承認</button>
+              <button onClick={handleReject} style={{ flex:1, padding:'12px', fontSize:'15px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(250,112,154,0.3)' }}>↩️ 差戻し</button>
             </div>
           )}
         </div>
-
-        {transaction.status === 'pending' && (
-          <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
-            <button
-              onClick={handleApprove}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: 'white',
-                backgroundColor: '#28a745',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              承認
-            </button>
-            <button
-              onClick={handleReject}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: 'white',
-                backgroundColor: '#dc3545',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              差戻し
-            </button>
-          </div>
-        )}
       </div>
 
       {/* 画像拡大モーダル */}
       {selectedImage && (
-        <div 
-          onClick={() => setSelectedImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            cursor: 'pointer'
-          }}
-        >
-          <img 
-            src={selectedImage} 
-            alt="拡大表示"
-            style={{ 
-              maxWidth: '90%', 
-              maxHeight: '90%',
-              objectFit: 'contain'
-            }} 
-          />
+        <div onClick={() => setSelectedImage(null)}
+          style={{ position:'fixed', top:0, left:0, right:0, bottom:0, backgroundColor:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, cursor:'pointer' }}>
+          <img src={selectedImage} alt="拡大表示" style={{ maxWidth:'90%', maxHeight:'90%', objectFit:'contain', borderRadius:'8px' }} />
         </div>
       )}
     </div>
-        </div>
-      </div>
   );
 }

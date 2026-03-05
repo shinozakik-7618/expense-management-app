@@ -115,7 +115,7 @@ function TransactionCreate() {
             const result: any = await httpsCallable(functions, 'analyzeReceipt')({ image: base64 });
             if (result.data.success) {
               const data = (result.data as any).data;
-              setFormData(prev => ({ ...prev, amount: data.amount ? data.amount.toLocaleString() : prev.amount, merchantName: data.merchantName || prev.merchantName, transactionDate: data.date || prev.transactionDate }));
+              setFormData(prev => ({ ...prev, amount: data.amount != null ? String(data.amount) : prev.amount, merchantName: data.merchantName || prev.merchantName, transactionDate: data.date || prev.transactionDate }));
               alert('領収書を自動認識しました！');
             } else { alert('認識失敗: ' + (result.data.error || '不明なエラー')); }
           } catch(e: any) { console.error('OCRエラー:', e.message); alert('OCRエラー: ' + e.message); }
@@ -155,7 +155,7 @@ function TransactionCreate() {
         userId: auth.currentUser.uid, organizationId: 'org001',
         blockId: userBlockId || null, regionId: userRegionId || null, baseId: userBaseId || null,
         transactionDate: Timestamp.fromDate(new Date(formData.transactionDate)),
-        amount: Number(formData.amount), merchantName: formData.merchantName,
+        amount: Number(String(formData.amount).replace(/[^0-9]/g, "")), merchantName: formData.merchantName,
         categoryId: formData.categoryId, memo: formData.memo, expenseDestination: formData.expenseDestination,
         status: 'pending', approvalRoute: 'regional', receiptCount: selectedFiles.length,
         createdAt: Timestamp.now(), updatedAt: Timestamp.now()

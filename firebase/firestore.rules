@@ -2,48 +2,69 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'user';
+    }
+
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'admin';
+      return request.auth != null && getUserRole() == 'admin';
     }
 
     function isManager() {
-      return request.auth != null && request.auth.token.role in ['admin','region_manager','block_manager','base_manager'];
+      return request.auth != null && getUserRole() in ['admin', 'region_manager', 'block_manager', 'base_manager'];
     }
 
+    // ユーザー: 認証済みなら読み取り可、書き込みは管理者のみ
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
+      allow read: if request.auth != null;
       allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
     }
 
+    // 取引
     match /transactions/{transactionId} {
       allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isManager());
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update: if request.auth != null && ((resource.data.userId == request.auth.uid && resource.data.status in ['pending','rejected']) || isManager());
+      allow update: if request.auth != null && ((resource.data.userId == request.auth.uid && resource.data.status in ['pending', 'rejected']) || isManager());
       allow delete: if isAdmin();
     }
 
+    // 承認履歴
     match /approval_history/{historyId} {
       allow read: if request.auth != null;
       allow create: if isManager();
     }
 
+    // 領収書
     match /receipts/{receiptId} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null && (request.resource.data.uploadedBy == request.auth.uid || isAdmin());
       allow delete: if isAdmin();
     }
 
+    // カテゴリ
     match /categories/{categoryId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
 
+    // 組織
     match /organizations/{orgId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
 
+    // 通知
+    match /notifications/{notifId} {
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isManager();
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // 監査ログ
     match /audit_logs/{logId} {
       allow read: if isAdmin();
       allow write: if false;

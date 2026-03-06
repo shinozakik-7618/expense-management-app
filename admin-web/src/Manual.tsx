@@ -221,8 +221,22 @@ const Manual: React.FC = () => {
                 <tr><td style={td}>取引月</td><td style={td}>プルダウンで月を選択（最新月が上、デフォルト：全期間）</td></tr>
                 <tr><td style={td}>使用者</td><td style={td}>プルダウンで使用者を選択（50音順、デフォルト：全員）</td></tr>
                 <tr><td style={td}>ステータス</td><td style={td}>全て・承認済・未処理・差戻し・申請中で絞り込み</td></tr>
+                <tr><td style={td}>🔍 フリーワード検索</td><td style={td}>店舗名・メモのキーワードで絞り込み</td></tr>
               </tbody></table>
               <div className="hint-box" style={hint}>ヒント：フィルターは組み合わせて使用できます。例：「2026年3月」×「承認済」で特定月の承認済取引のみ表示。</div>
+              <h3 style={h3s}>一括承認・差戻し</h3>
+              <p style={{ lineHeight: '1.8' }}>取引一覧の各行にチェックボックスがあり、複数の取引をまとめて操作できます。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>ボタン</th><th style={th}>動作</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>✅ 一括承認</td><td style={td}>選択した取引を「承認済」に変更</td></tr>
+                <tr><td style={td}>⚠️ 一括差戻し</td><td style={td}>選択した取引を「差戻し」に変更</td></tr>
+                <tr><td style={td}>↩️ 未処理に戻す</td><td style={td}>選択した取引を「未処理」に変更</td></tr>
+                <tr><td style={td}>✕ 選択解除</td><td style={td}>選択状態をすべて解除</td></tr>
+              </tbody></table>
+              <div className="hint-box" style={hint}>ヒント：ヘッダー行のチェックボックスをクリックすると、表示中の全取引を一括選択できます。フィルターで絞り込んでから一括承認すると効率的です。</div>
+              <h3 style={h3s}>ページネーション</h3>
+              <p style={{ lineHeight: '1.8' }}>取引件数が20件を超える場合、ページ分割で表示されます。画面下部の「前へ」「次へ」ボタンでページを切り替えてください。フィルター条件を変更すると自動的に1ページ目に戻ります。</p>
               <h3 style={h3s}>CSVエクスポート</h3>
               <p style={{ lineHeight: '1.8' }}>取引一覧画面右上の「CSVエクスポート」ボタンをクリックすると、現在のフィルター条件で絞り込まれたデータをCSVファイルとして出力できます。</p>
               <table style={tbl}><thead><tr>

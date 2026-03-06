@@ -39,8 +39,12 @@ export default function TransactionList() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [userList, setUserList] = useState<{uid:string, name:string}[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchWord, setSearchWord] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => { loadTransactions(); }, []);
+  useEffect(() => { setCurrentPage(1); }, [selectedMonth, selectedUser, selectedStatus, searchWord]);
 
   const loadTransactions = async () => {
     try {
@@ -89,8 +93,18 @@ export default function TransactionList() {
     }
     if (selectedUser !== 'all' && tx.userId !== selectedUser) return false;
     if (selectedStatus !== 'all' && tx.status !== selectedStatus) return false;
+    if (searchWord) {
+      const word = searchWord.toLowerCase();
+      const matchMerchant = (tx.merchantName || '').toLowerCase().includes(word);
+      const matchMemo = (tx.memo || '').toLowerCase().includes(word);
+      if (!matchMerchant && !matchMemo) return false;
+    }
     return true;
   });
+
+  // ページネーション
+  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+  const pagedTransactions = filteredTransactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // 月一覧（最新順）
   const monthList = Array.from(new Set(transactions.map(tx => {
@@ -305,6 +319,18 @@ export default function TransactionList() {
               </div>
             </div>
 
+            {/* フリーワード検索 */}
+            <div style={{ display:'flex', flexDirection:'column' as const, gap:'0.4rem' }}>
+              <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.78rem', fontWeight:'600', letterSpacing:'0.05em' }}>🔍 フリーワード検索</label>
+              <input
+                type='text'
+                value={searchWord}
+                onChange={e => setSearchWord(e.target.value)}
+                placeholder='店舗名・メモで検索...'
+                style={{ padding:'8px 16px', borderRadius:'8px', cursor:'text', fontWeight:'600', fontSize:'0.9rem', background:'rgba(255,255,255,0.08)', color:'white', border:'1px solid rgba(255,255,255,0.2)', outline:'none', minWidth:'220px' }}
+              />
+            </div>
+
           </div>
         </div>
 
@@ -342,7 +368,7 @@ export default function TransactionList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((tx) => (
+                  {pagedTransactions.map((tx) => (
                     <tr key={tx.id}
                       style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', transition:'background 0.2s' }}
                       onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
@@ -371,6 +397,16 @@ export default function TransactionList() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* ページネーション */}
+          {totalPages > 1 && (
+            <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:'0.6rem', marginTop:'1.5rem', flexWrap:'wrap' }}>
+              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} style={{ padding:'6px 12px', background: currentPage===1 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', color: currentPage===1 ? 'rgba(255,255,255,0.3)' : 'white', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'6px', cursor: currentPage===1 ? 'default' : 'pointer', fontWeight:'600' }}>«</button>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1} style={{ padding:'6px 12px', background: currentPage===1 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', color: currentPage===1 ? 'rgba(255,255,255,0.3)' : 'white', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'6px', cursor: currentPage===1 ? 'default' : 'pointer', fontWeight:'600' }}>‹ 前へ</button>
+              <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'0.9rem', padding:'0 0.5rem' }}>{currentPage} / {totalPages} ページ（全{filteredTransactions.length}件）</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage === totalPages} style={{ padding:'6px 12px', background: currentPage===totalPages ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', color: currentPage===totalPages ? 'rgba(255,255,255,0.3)' : 'white', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'6px', cursor: currentPage===totalPages ? 'default' : 'pointer', fontWeight:'600' }}>次へ ›</button>
+              <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} style={{ padding:'6px 12px', background: currentPage===totalPages ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)', color: currentPage===totalPages ? 'rgba(255,255,255,0.3)' : 'white', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'6px', cursor: currentPage===totalPages ? 'default' : 'pointer', fontWeight:'600' }}>»</button>
             </div>
           )}
         </div>

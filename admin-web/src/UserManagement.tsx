@@ -37,6 +37,7 @@ const UserManagement: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createEmail, setCreateEmail] = useState('');
+  const [createRole, setCreateRole] = useState('user');
   const [inviteUrl, setInviteUrl] = useState('');
 
   useEffect(() => { loadData(); }, []);
@@ -104,7 +105,7 @@ const UserManagement: React.FC = () => {
       if (!snapshot.empty) { alert('このメールは既に登録されています'); return; }
       const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
       const uid = 'invite_' + token.slice(0, 20);
-      await setDoc(doc(db, 'users', uid), { uid, email, role:'user', status:'pending', inviteToken:token, tokenCreatedAt:Timestamp.now(), createdAt:Timestamp.now(), updatedAt:Timestamp.now() });
+      await setDoc(doc(db, 'users', uid), { uid, email, role:createRole, status:'pending', inviteToken:token, tokenCreatedAt:Timestamp.now(), createdAt:Timestamp.now(), updatedAt:Timestamp.now() });
       const url = 'https://expense-management-pcdepot.web.app/invite-accept?token=' + token;
       setInviteUrl(url);
       alert('招待リンクを発行しました');
@@ -355,6 +356,16 @@ const UserManagement: React.FC = () => {
               <label style={modalLabelStyle}>メールアドレス</label>
               <input type="email" value={createEmail} onChange={(e)=>setCreateEmail(e.target.value)} placeholder="user@example.com" style={modalInputStyle} />
             </div>
+            <div style={{ marginBottom:'14px' }}>
+              <label style={modalLabelStyle}>役割</label>
+              <select value={createRole} onChange={(e)=>setCreateRole(e.target.value)} style={{ ...modalInputStyle, appearance:'none', marginTop:'6px' }}>
+                <option value="user" style={{background:'#1e1b3a'}}>一般ユーザー</option>
+                <option value="admin" style={{background:'#1e1b3a'}}>管理者</option>
+                <option value="block_manager" style={{background:'#1e1b3a'}}>ブロック・部署長</option>
+                <option value="region_manager" style={{background:'#1e1b3a'}}>地域代表</option>
+                <option value="base_manager" style={{background:'#1e1b3a'}}>経営管理・管理責任者</option>
+              </select>
+            </div>
             {inviteUrl && (
               <div style={{ marginBottom:'14px', padding:'14px', background:'rgba(124,92,191,0.15)', border:'1px solid rgba(124,92,191,0.35)', borderRadius:'10px' }}>
                 <div style={{ color:'rgba(255,255,255,0.7)', fontSize:'13px', fontWeight:'600', marginBottom:'8px' }}>招待リンク</div>
@@ -363,7 +374,7 @@ const UserManagement: React.FC = () => {
               </div>
             )}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:'10px', marginTop:'1.5rem' }}>
-              <button onClick={()=>{ setShowCreateModal(false); setCreateEmail(''); setInviteUrl(''); }} style={btnNav}>閉じる</button>
+              <button onClick={()=>{ setShowCreateModal(false); setCreateEmail(''); setInviteUrl(''); setCreateRole('user'); }} style={btnNav}>閉じる</button>
               <button onClick={handleCreateInvite} style={btnPrimary}>📨 招待リンクを発行</button>
             </div>
           </div>

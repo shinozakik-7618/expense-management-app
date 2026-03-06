@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { getUserInfo, buildTransactionQuery } from './utils/userPermissions';
 
 interface Transaction {
@@ -14,6 +14,8 @@ interface Transaction {
   memo: string;
   status: string;
   receiptCount: number;
+  userId?: string;
+  userName?: string;
 }
 
 const dark = { minHeight:'100vh', background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#2d2b55 100%)', padding:'2rem' };
@@ -21,12 +23,21 @@ const card = { background:'rgba(255,255,255,0.07)', backdropFilter:'blur(20px)',
 const btnNav = { padding:'10px 18px', background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.85)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'8px', cursor:'pointer', fontWeight:'600' as const };
 const btnPrimary = { padding:'10px 18px', background:'linear-gradient(135deg,#7c5cbf 0%,#a855f7 100%)', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600' as const };
 const btnDanger = { padding:'10px 18px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'8px', cursor:'pointer', fontWeight:'600' as const };
+const selectStyle = {
+  padding:'8px 16px', borderRadius:'8px', cursor:'pointer', fontWeight:'600' as const, fontSize:'0.9rem',
+  background:'rgba(255,255,255,0.08)', color:'white', border:'1px solid rgba(255,255,255,0.2)',
+  outline:'none', minWidth:'180px'
+};
 
 export default function TransactionList() {
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [userList, setUserList] = useState<{uid:string, name:string}[]>([]);
 
   useEffect(() => { loadTransactions(); }, []);
 
@@ -44,7 +55,7 @@ export default function TransactionList() {
       } else {
         q = query(transactionsRef);
       }
-      onSnapshot(q, (snapshot) => {
+      onSnapshot(q, async (snapshot) => {
         const txList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Transaction)
           .sort((a, b) => {
             const dateA = a.transactionDate?.toDate() || new Date(0);
@@ -52,12 +63,104 @@ export default function TransactionList() {
             return dateB.getTime() - dateA.getTime();
           });
         setTransactions(txList);
+        // 使用者一覧（50音順）
+        const userMap = new Map<string, string>();
+        const usersSnap = await getDocs(collection(db, 'users')); const usersData = new Map(usersSnap.docs.map(d => [d.id, d.data().displayName || d.data().email || d.id])); txList.forEach(t => { if (t.userId) userMap.set(t.userId, usersData.get(t.userId) || '⚠️ 未登録ユーザー'); });
+        const users = Array.from(userMap.entries())
+          .map(([uid, name]) => ({ uid, name }))
+          .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+        setUserList(users);
         setLoading(false);
       });
     } catch (error) {
       console.error('取引一覧読み込みエラー:', error);
       setLoading(false);
     }
+  };
+
+  // フィルター適用
+  const filteredTransactions = transactions.filter(tx => {
+    if (selectedMonth !== 'all') {
+      const date = tx.transactionDate?.toDate();
+      if (!date) return false;
+      const ym = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+      if (ym !== selectedMonth) return false;
+    }
+    if (selectedUser !== 'all' && tx.userId !== selectedUser) return false;
+    if (selectedStatus !== 'all' && tx.status !== selectedStatus) return false;
+    return true;
+  });
+
+  // 月一覧（最新順）
+  const monthList = Array.from(new Set(transactions.map(tx => {
+    const date = tx.transactionDate?.toDate();
+    if (!date) return null;
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+  }).filter(Boolean))).sort().reverse() as string[];
+
+  // 月ごとの件数（現在の使用者・ステータスフィルター考慮）
+  const countByMonth = (ym: string) => transactions.filter(tx => {
+    const d = tx.transactionDate?.toDate();
+    if (!d) return false;
+    const txYm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const inUser = selectedUser === 'all' || tx.userId === selectedUser;
+    const inStatus = selectedStatus === 'all' || tx.status === selectedStatus;
+    return txYm === ym && inUser && inStatus;
+  }).length;
+
+  // 使用者ごとの件数（現在の月・ステータスフィルター考慮）
+  const countByUser = (uid: string) => transactions.filter(tx => {
+    const inMonth = selectedMonth === 'all' || (() => {
+      const d = tx.transactionDate?.toDate();
+      if (!d) return false;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === selectedMonth;
+    })();
+    const inStatus = selectedStatus === 'all' || tx.status === selectedStatus;
+    return tx.userId === uid && inMonth && inStatus;
+  }).length;
+
+  // ステータス件数
+  const countByStatus = (status: string) => transactions.filter(tx => {
+    const inMonth = selectedMonth === 'all' || (() => {
+      const d = tx.transactionDate?.toDate();
+      if (!d) return false;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === selectedMonth;
+    })();
+    const inUser = selectedUser === 'all' || tx.userId === selectedUser;
+    return inMonth && inUser && tx.status === status;
+  }).length;
+
+  // 全取引件数（月・使用者フィルター考慮）
+  const countAll = transactions.filter(tx => {
+    const inMonth = selectedMonth === 'all' || (() => {
+      const d = tx.transactionDate?.toDate();
+      if (!d) return false;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === selectedMonth;
+    })();
+    const inUser = selectedUser === 'all' || tx.userId === selectedUser;
+    return inMonth && inUser;
+  }).length;
+
+  // CSVエクスポート
+  const handleExport = () => {
+    const headers = ['取引日','店舗名','金額','ステータス','メモ','使用者'];
+    const statusLabel: {[k:string]:string} = { pending:'未処理', submitted:'申請中', rejected:'差戻し', approved:'承認済' };
+    const rows = filteredTransactions.map(tx => [
+      tx.transactionDate?.toDate().toLocaleDateString('ja-JP') || '',
+      tx.merchantName || '',
+      tx.amount || 0,
+      statusLabel[tx.status] || tx.status,
+      tx.memo || '',
+      tx.userName || tx.userId || ''
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `取引一覧_${selectedMonth !== 'all' ? selectedMonth : '全期間'}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLogout = async () => {
@@ -85,6 +188,13 @@ export default function TransactionList() {
     );
   };
 
+  const btnFilter = (active: boolean) => ({
+    padding:'8px 16px', borderRadius:'20px', cursor:'pointer', fontWeight:'600' as const, fontSize:'0.85rem',
+    background: active ? 'linear-gradient(135deg,#7c5cbf 0%,#a855f7 100%)' : 'rgba(255,255,255,0.08)',
+    color: active ? 'white' : 'rgba(255,255,255,0.7)',
+    border: active ? 'none' : '1px solid rgba(255,255,255,0.15)'
+  });
+
   if (loading) return (
     <div style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'100vh', background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#2d2b55 100%)' }}>
       <div style={{ fontSize:'1.5rem', fontWeight:'bold', color:'white' }}>✨ 読み込み中...</div>
@@ -109,12 +219,69 @@ export default function TransactionList() {
           </div>
         </div>
 
+        {/* フィルターパネル */}
+        <div style={{ ...card, padding:'1.2rem 2rem', marginBottom:'1.5rem' }}>
+          <div style={{ display:'flex', gap:'1.5rem', flexWrap:'wrap', alignItems:'flex-end' }}>
+
+            {/* 取引月プルダウン */}
+            <div style={{ display:'flex', flexDirection:'column' as const, gap:'0.4rem' }}>
+              <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.78rem', fontWeight:'600', letterSpacing:'0.05em' }}>📅 取引月</label>
+              <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} style={selectStyle}>
+                <option value="all">全期間（{transactions.length}件）</option>
+                {monthList.map(m => {
+                  const [y, mo] = m.split('-');
+                  return (
+                    <option key={m} value={m}>
+                      {y}年{parseInt(mo)}月（{countByMonth(m)}件）
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 使用者プルダウン */}
+            <div style={{ display:'flex', flexDirection:'column' as const, gap:'0.4rem' }}>
+              <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.78rem', fontWeight:'600', letterSpacing:'0.05em' }}>👤 使用者</label>
+              <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={selectStyle}>
+                <option value="all">全員（{transactions.filter(tx => {
+                  const inMonth = selectedMonth === 'all' || (() => { const d = tx.transactionDate?.toDate(); if(!d) return false; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === selectedMonth; })();
+                  const inStatus = selectedStatus === 'all' || tx.status === selectedStatus;
+                  return inMonth && inStatus;
+                }).length}件）</option>
+                {userList.map(u => (
+                  <option key={u.uid} value={u.uid}>
+                    {u.name}（{countByUser(u.uid)}件）
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ステータスボタン */}
+            <div style={{ display:'flex', flexDirection:'column' as const, gap:'0.4rem' }}>
+              <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.78rem', fontWeight:'600', letterSpacing:'0.05em' }}>🔖 ステータス</label>
+              <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+                <button onClick={() => setSelectedStatus('all')} style={btnFilter(selectedStatus==='all')}>全て（{countAll}件）</button>
+                <button onClick={() => setSelectedStatus('approved')} style={btnFilter(selectedStatus==='approved')}>✅ 承認済（{countByStatus('approved')}件）</button>
+                <button onClick={() => setSelectedStatus('pending')} style={btnFilter(selectedStatus==='pending')}>⏳ 未処理（{countByStatus('pending')}件）</button>
+                <button onClick={() => setSelectedStatus('rejected')} style={btnFilter(selectedStatus==='rejected')}>⚠️ 差戻し（{countByStatus('rejected')}件）</button>
+                <button onClick={() => setSelectedStatus('submitted')} style={btnFilter(selectedStatus==='submitted')}>📤 申請中（{countByStatus('submitted')}件）</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         {/* 取引一覧テーブル */}
         <div style={{ ...card, padding:'1.5rem 2rem' }}>
-          <h2 style={{ fontSize:'1.25rem', fontWeight:'700', color:'white', marginBottom:'1.2rem', marginTop:0 }}>
-            全取引（{transactions.length}件）
-          </h2>
-          {transactions.length === 0 ? (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.2rem' }}>
+            <h2 style={{ fontSize:'1.25rem', fontWeight:'700', color:'white', margin:0 }}>
+              表示中（{filteredTransactions.length}件）
+            </h2>
+            <button onClick={handleExport} style={{ ...btnPrimary, padding:'8px 16px', fontSize:'0.85rem' }}>
+              📤 CSVエクスポート
+            </button>
+          </div>
+          {filteredTransactions.length === 0 ? (
             <div style={{ textAlign:'center', padding:'3rem', color:'rgba(255,255,255,0.4)', fontSize:'1.1rem' }}>📭 取引データがありません</div>
           ) : (
             <div style={{ overflowX:'auto' }}>
@@ -127,7 +294,7 @@ export default function TransactionList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => (
+                  {filteredTransactions.map((tx) => (
                     <tr key={tx.id}
                       style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', transition:'background 0.2s' }}
                       onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}

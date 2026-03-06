@@ -155,6 +155,7 @@ const Manual: React.FC = () => {
                 <tr><td style={td}>通知</td><td style={td}>期限アラート・承認通知・システムメッセージ</td></tr>
                 <tr><td style={td}>ユーザー管理</td><td style={td}>社員アカウントの作成・権限設定（管理者向け）</td></tr>
                 <tr><td style={td}>カテゴリ管理</td><td style={td}>経費カテゴリのカスタマイズ（管理者向け）</td></tr>
+                <tr><td style={td}>CSVエクスポート</td><td style={td}>取引データのCSVファイル出力・バックアップ</td></tr>
               </tbody></table>
               <h3 style={h3s}>権限一覧</h3>
               <table style={tbl}><thead><tr>
@@ -213,14 +214,31 @@ const Manual: React.FC = () => {
             <div id="ch4" className="chapter ps" style={card}>
               <h2 style={h2s}>第4章 取引管理</h2>
               <h3 style={h3s}>取引一覧の表示</h3>
-              <p style={{ lineHeight: '1.8' }}>「取引一覧」ボタンから全取引を確認できます。検索・フィルター機能で絞り込みが可能です。</p>
+              <p style={{ lineHeight: '1.8' }}>「取引一覧」ボタンから全取引を確認できます。以下のフィルター機能で絞り込みが可能です。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>フィルター</th><th style={th}>説明</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>取引月</td><td style={td}>プルダウンで月を選択（最新月が上、デフォルト：全期間）</td></tr>
+                <tr><td style={td}>使用者</td><td style={td}>プルダウンで使用者を選択（50音順、デフォルト：全員）</td></tr>
+                <tr><td style={td}>ステータス</td><td style={td}>全て・承認済・未処理・差戻し・申請中で絞り込み</td></tr>
+              </tbody></table>
+              <div className="hint-box" style={hint}>ヒント：フィルターは組み合わせて使用できます。例：「2026年3月」×「承認済」で特定月の承認済取引のみ表示。</div>
+              <h3 style={h3s}>CSVエクスポート</h3>
+              <p style={{ lineHeight: '1.8' }}>取引一覧画面右上の「CSVエクスポート」ボタンをクリックすると、現在のフィルター条件で絞り込まれたデータをCSVファイルとして出力できます。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>出力項目</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>取引日・店舗名・金額・ステータス・メモ・使用者</td></tr>
+              </tbody></table>
+              <div className="hint-box" style={hint}>ヒント：月次でエクスポートしてデータをバックアップすることを推奨します。エクスポート後に該当データを削除することも可能です。</div>
               <h3 style={h3s}>新規取引の登録</h3>
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 16px' }}>
                 <li>「新規取引」ボタンをクリック</li>
-                <li>取引日・金額・カテゴリ・メモを入力</li>
-                <li>レシート画像をアップロード（任意）</li>
+                <li>領収書画像をアップロードすると<strong style={{ color: '#a855f7' }}>AI自動認識（OCR）</strong>で店舗名・金額・取引日が自動入力される</li>
+                <li>内容を確認・修正し、カテゴリ・メモを入力</li>
                 <li>「保存」をクリック</li>
               </ol>
+              <div className="hint-box" style={hint}>ヒント：領収書のOCR自動認識はAIが店舗名・金額・取引日を読み取ります。認識精度は領収書の状態により異なりますので、必ず内容を確認してから保存してください。</div>
               <h3 style={h3s}>取引の編集・削除</h3>
               <p style={{ lineHeight: '1.8' }}>取引一覧から対象行をクリックして詳細画面を開き、「編集」または「削除」ボタンを操作します。</p>
               <div className="warn-box" style={warn}>注意：削除した取引は復元できません。誤操作に注意してください。</div>

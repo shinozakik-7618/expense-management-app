@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, onSnapshot, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { getUserInfo, buildTransactionQuery } from './utils/userPermissions';
 
 interface Transaction {
@@ -38,6 +38,7 @@ export default function TransactionList() {
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [userList, setUserList] = useState<{uid:string, name:string}[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => { loadTransactions(); }, []);
 
@@ -167,6 +168,42 @@ export default function TransactionList() {
     try { await signOut(auth); navigate('/'); } catch (error) { console.error('ログアウトエラー:', error); }
   };
 
+  // チェックボックス操作
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredTransactions.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredTransactions.map(tx => tx.id)));
+    }
+  };
+
+  // 一括ステータス更新
+  const handleBulkUpdate = async (status: string) => {
+    if (selectedIds.size === 0) { alert('取引を選択してください'); return; }
+    const statusLabel: {[k:string]:string} = { approved:'承認済', rejected:'差戻し', pending:'未処理' };
+    if (!confirm(`選択した${selectedIds.size}件を「${statusLabel[status]}」に変更しますか？`)) return;
+    try {
+      const batch = writeBatch(db);
+      selectedIds.forEach(id => {
+        batch.update(doc(db, 'transactions', id), { status, updatedAt: new Date() });
+      });
+      await batch.commit();
+      setSelectedIds(new Set());
+      alert(`✅ ${selectedIds.size}件を${statusLabel[status]}に変更しました`);
+    } catch (error) {
+      console.error('一括更新エラー:', error);
+      alert('更新に失敗しました');
+    }
+  };
+
   const handleDelete = async (transactionId: string) => {
     if (!confirm('この取引を削除しますか？')) return;
     try { await deleteDoc(doc(db, 'transactions', transactionId)); alert('削除しました'); }
@@ -277,9 +314,20 @@ export default function TransactionList() {
             <h2 style={{ fontSize:'1.25rem', fontWeight:'700', color:'white', margin:0 }}>
               表示中（{filteredTransactions.length}件）
             </h2>
-            <button onClick={handleExport} style={{ ...btnPrimary, padding:'8px 16px', fontSize:'0.85rem' }}>
-              📤 CSVエクスポート
-            </button>
+<div style={{ display:'flex', gap:'0.5rem', alignItems:'center', flexWrap:'wrap' }}>
+              {selectedIds.size > 0 && (
+                <>
+                  <span style={{ color:'rgba(255,255,255,0.6)', fontSize:'0.85rem' }}>{selectedIds.size}件選択中</span>
+                  <button onClick={() => handleBulkUpdate('approved')} style={{ padding:'8px 14px', background:'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>✅ 一括承認</button>
+                  <button onClick={() => handleBulkUpdate('rejected')} style={{ padding:'8px 14px', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>⚠️ 一括差戻し</button>
+                  <button onClick={() => handleBulkUpdate('pending')} style={{ padding:'8px 14px', background:'rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.7)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'0.85rem' }}>↩️ 未処理に戻す</button>
+                  <button onClick={() => setSelectedIds(new Set())} style={{ padding:'8px 14px', background:'rgba(255,255,255,0.06)', color:'rgba(255,255,255,0.5)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', cursor:'pointer', fontSize:'0.85rem' }}>✕ 選択解除</button>
+                </>
+              )}
+              <button onClick={handleExport} style={{ ...btnPrimary, padding:'8px 16px', fontSize:'0.85rem' }}>
+                📤 CSVエクスポート
+              </button>
+            </div>
           </div>
           {filteredTransactions.length === 0 ? (
             <div style={{ textAlign:'center', padding:'3rem', color:'rgba(255,255,255,0.4)', fontSize:'1.1rem' }}>📭 取引データがありません</div>
@@ -288,8 +336,8 @@ export default function TransactionList() {
               <table style={{ width:'100%', borderCollapse:'collapse' }}>
                 <thead>
                   <tr style={{ background:'rgba(255,255,255,0.05)' }}>
-                    {['取引日','店舗（会社）名','金額','領収書','ステータス','操作'].map(h => (
-                      <th key={h} style={{ padding:'0.9rem 1rem', textAlign: h==='金額' ? 'right' : h==='操作'||h==='領収書'||h==='ステータス' ? 'center' : 'left', fontSize:'0.75rem', fontWeight:'700', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{h}</th>
+                    {['','取引日','店舗（会社）名','金額','領収書','ステータス','操作'].map(h => (
+                      <th key={h} style={{ padding:'0.9rem 1rem', textAlign: h==='金額' ? 'right' : h==='操作'||h==='領収書'||h==='ステータス'||h==='' ? 'center' : 'left', fontSize:'0.75rem', fontWeight:'700', color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.05em', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{h==='' ? <input type='checkbox' onChange={toggleSelectAll} checked={selectedIds.size===filteredTransactions.length && filteredTransactions.length>0} style={{ cursor:'pointer', width:'16px', height:'16px' }} /> : h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -300,6 +348,7 @@ export default function TransactionList() {
                       onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
                       onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
                     >
+                      <td style={{ padding:'0.9rem 1rem', textAlign:'center' }}><input type='checkbox' checked={selectedIds.has(tx.id)} onChange={() => toggleSelect(tx.id)} style={{ cursor:'pointer', width:'16px', height:'16px' }} /></td>
                       <td style={{ padding:'0.9rem 1rem', color:'rgba(255,255,255,0.7)', fontSize:'0.9rem' }}>
                         {tx.transactionDate?.toDate().toLocaleDateString('ja-JP')}
                       </td>

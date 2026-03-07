@@ -256,6 +256,27 @@ const Manual: React.FC = () => {
               <h3 style={h3s}>取引の編集・削除</h3>
               <p style={{ lineHeight: '1.8' }}>取引一覧から対象行をクリックして詳細画面を開き、「編集」または「削除」ボタンを操作します。</p>
               <div className="warn-box" style={warn}>注意：削除した取引は復元できません。誤操作に注意してください。</div>
+              <h3 style={h3s}>取引詳細画面</h3>
+              <p style={{ lineHeight: '1.8' }}>取引一覧の「👁️ 詳細」ボタンから開きます。以下の情報が確認できます。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>項目</th><th style={th}>内容</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>使用者</td><td style={td}>取引を登録したスタッフの表示名</td></tr>
+                <tr><td style={td}>ステータス</td><td style={td}>現在の承認状態</td></tr>
+                <tr><td style={td}>証憑画像</td><td style={td}>登録された領収書画像（クリックで拡大表示）</td></tr>
+                <tr><td style={td}>ステータス変更</td><td style={td}>承認・差戻し・未処理に戻すボタン（管理者・マネージャーのみ表示）</td></tr>
+              </tbody></table>
+              <div className="hint-box" style={hint}>ヒント：証憑画像をクリックすると拡大表示されます。画像をクリックすると閉じます。</div>
+              <h3 style={h3s}>取引編集画面</h3>
+              <p style={{ lineHeight: '1.8' }}>取引一覧の「✏️ 編集」ボタンから開きます。取引日・金額・加盟店名・用途・メモの編集が可能です。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>機能</th><th style={th}>内容</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>使用者・ステータス表示</td><td style={td}>画面上部に使用者名と現在のステータスを表示</td></tr>
+                <tr><td style={td}>取引情報編集</td><td style={td}>取引日・金額・加盟店名・用途・メモを編集して保存</td></tr>
+                <tr><td style={td}>ステータス変更</td><td style={td}>承認・差戻し・未処理に戻すボタン（管理者・マネージャーのみ表示）</td></tr>
+              </tbody></table>
+              <div className="hint-box" style={hint}>ヒント：証憑画像の編集は「詳細」画面から行ってください。編集画面では取引情報のみ変更できます。</div>
             </div>
 
             <div id="ch5" className="chapter ps" style={card}>

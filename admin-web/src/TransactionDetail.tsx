@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, Timestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, collection, query, where, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage, auth } from './firebase';
 import { getUserInfo } from './utils/userPermissions';
@@ -86,6 +86,17 @@ export default function TransactionDetail() {
     if (!id || !window.confirm('この取引を承認しますか？')) return;
     try {
       await updateDoc(doc(db, 'transactions', id), { status: 'approved', approvedAt: Timestamp.now(), updatedAt: Timestamp.now() });
+      if (transaction?.userId) {
+        await addDoc(collection(db, 'notifications'), {
+          userId: transaction.userId,
+          type: 'approval',
+          title: '取引が承認されました',
+          message: `「${transaction.merchantName}」(${transaction.amount.toLocaleString()}円) が承認されました。`,
+          transactionId: id,
+          read: false,
+          createdAt: Timestamp.now()
+        });
+      }
       alert('取引を承認しました'); navigate('/transactions');
     } catch (error) { console.error('承認に失敗:', error); alert('承認に失敗しました'); }
   };
@@ -94,7 +105,18 @@ export default function TransactionDetail() {
     const comment = window.prompt('差戻し理由を入力してください：');
     if (!id || !comment) return;
     try {
-      await updateDoc(doc(db, 'transactions', id), { status: 'rejected', updatedAt: Timestamp.now() });
+      await updateDoc(doc(db, 'transactions', id), { status: 'rejected', rejectionComment: comment, updatedAt: Timestamp.now() });
+      if (transaction?.userId) {
+        await addDoc(collection(db, 'notifications'), {
+          userId: transaction.userId,
+          type: 'rejection',
+          title: '取引が差戻されました',
+          message: `「${transaction.merchantName}」(${transaction.amount.toLocaleString()}円) が差戻しされました。理由: ${comment}`,
+          transactionId: id,
+          read: false,
+          createdAt: Timestamp.now()
+        });
+      }
       alert('取引を差戻しました'); navigate('/transactions');
     } catch (error) { console.error('差戻しに失敗:', error); alert('差戻しに失敗しました'); }
   };
@@ -194,7 +216,7 @@ export default function TransactionDetail() {
                   <button onClick={handleReject} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(250,112,154,0.3)' }}>⚠️ 差戻し</button>
                 )}
                 {transaction.status !== 'pending' && (
-                  <button onClick={async () => { if (!id || !window.confirm('未処理に戻しますか？')) return; try { await updateDoc(doc(db, 'transactions', id), { status:'pending', updatedAt: Timestamp.now() }); alert('未処理に戻しました'); loadTransaction(id); } catch(e) { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'rgba(255,255,255,0.7)', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', cursor:'pointer' }}>↩️ 未処理に戻す</button>
+                  <button onClick={async () => { if (!id || !window.confirm('未処理に戻しますか？')) return; try { await updateDoc(doc(db, 'transactions', id), { status:'pending', updatedAt: Timestamp.now() }); if (transaction?.userId) { await addDoc(collection(db, 'notifications'), { userId: transaction.userId, type: 'revert', title: '取引が未処理に戻されました', message: `「${transaction.merchantName}」(${transaction.amount.toLocaleString()}円) が未処理に戻されました。再度ご確認ください。`, transactionId: id, read: false, createdAt: Timestamp.now() }); } alert('未処理に戻しました'); loadTransaction(id); } catch(e) { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'rgba(255,255,255,0.7)', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', cursor:'pointer' }}>↩️ 未処理に戻す</button>
                 )}
               </div>
             </div>

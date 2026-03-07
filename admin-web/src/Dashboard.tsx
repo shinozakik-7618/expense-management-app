@@ -182,7 +182,8 @@ const Dashboard: React.FC = () => {
             {[{l:'📌 用途管理',p:'/purpose-master'},{l:'📋 未報告',p:'/unreported'},{l:'📝 取引一覧',p:'/transactions'}].map(({l,p})=>(
               <button key={p} onClick={()=>navigate(p)} style={nb}>{l}</button>
             ))}
-            <button onClick={()=>navigate('/notifications')} style={{...nb,position:'relative'}}>
+            {isManager&&<button onClick={()=>navigate('/monthly-report')} style={nb}>📊 月次レポート</button>}
+              <button onClick={()=>navigate('/notifications')} style={{...nb,position:'relative'}}>
               🔔 通知
               {unreadNotifications>0&&<span style={{position:'absolute',top:'-7px',right:'-7px',background:'linear-gradient(135deg,#a855f7,#ec4899)',color:'#fff',fontSize:'0.68rem',fontWeight:'700',borderRadius:'50%',width:'20px',height:'20px',display:'flex',alignItems:'center',justifyContent:'center'}}>{unreadNotifications}</span>}
             </button>

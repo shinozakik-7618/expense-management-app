@@ -11,6 +11,7 @@ import CategoryManagement from './CategoryManagement';
 import UserManagement from './UserManagement';
 import CardReconciliation from './CardReconciliation';
 import Notifications from './Notifications';
+import MonthlyReport from './MonthlyReport';
 import InviteAccept from "./InviteAccept";
 import Manual from './Manual';
 
@@ -29,6 +30,7 @@ function App() {
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/reconciliation/card" element={<CardReconciliation />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/monthly-report" element={<MonthlyReport />} />
         <Route path="/invite-accept" element={<InviteAccept />} />
         <Route path="/manual" element={<Manual />} />
         <Route path="/" element={<Navigate to="/login" replace />} />

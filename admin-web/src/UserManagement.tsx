@@ -39,6 +39,12 @@ const UserManagement: React.FC = () => {
   const [createEmail, setCreateEmail] = useState('');
   const [createRole, setCreateRole] = useState('user');
   const [inviteUrl, setInviteUrl] = useState('');
+  const [createDisplayName, setCreateDisplayName] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<{displayName:string,email:string,role:string}[]>([]);
+  const [csvResults, setCsvResults] = useState<{email:string,password:string,status:string}[]>([]);
+  const [csvProcessing, setCsvProcessing] = useState(false);
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => { filterUsers(); }, [users, searchTerm, roleFilter, statusFilter, cardFilter]);
@@ -95,22 +101,99 @@ const UserManagement: React.FC = () => {
     setSelectedRegionId(user.regionId || '');
   };
 
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    return Array.from({length:12}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  };
+
   const handleCreateInvite = async () => {
     try {
       if (!currentUser || currentUser.role !== 'admin') { alert('管理者のみ実行できます'); return; }
       const email = createEmail.trim();
+      const displayName = createDisplayName.trim();
       if (!email) { alert('メールアドレスを入力してください'); return; }
+      if (!displayName) { alert('表示名を入力してください'); return; }
       const q = query(collection(db, 'users'), where('email', '==', email));
       const snapshot = await getDocs(q);
-      if (!snapshot.empty) { alert('このメールは既に登録されています'); return; }
-      const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-      const uid = 'invite_' + token.slice(0, 20);
-      await setDoc(doc(db, 'users', uid), { uid, email, role:createRole, status:'pending', inviteToken:token, tokenCreatedAt:Timestamp.now(), createdAt:Timestamp.now(), updatedAt:Timestamp.now() });
-      const url = 'https://expense-management-pcdepot.web.app/invite-accept?token=' + token;
-      setInviteUrl(url);
-      alert('招待リンクを発行しました');
-    } catch (e) { console.error(e); alert('招待リンクの発行に失敗しました'); }
+      if (!snapshot.empty) {
+        const existingData = snapshot.docs[0].data();
+        const isAuthCreated = existingData.uid && !existingData.uid.startsWith('invite_') && existingData.uid.length > 10;
+        if (isAuthCreated && existingData.status === 'active') {
+          if (!window.confirm(`${email} は既に登録済みです。上書き登録しますか？`)) return;
+        }
+        for (const d of snapshot.docs) { await deleteDoc(doc(db, 'users', d.id)); }
+      }
+      const password = generatePassword();
+      const { initializeApp: initApp, getApps, deleteApp } = await import('firebase/app');
+      const { getAuth: getAuth2, createUserWithEmailAndPassword, signOut: signOut2 } = await import('firebase/auth');
+      const fbConfig = { apiKey:'AIzaSyCK5ua2HWKuJPvTz3k1UeG9_P4J6gV9Q2M', authDomain:'expense-management-pcdepot.firebaseapp.com', projectId:'expense-management-pcdepot', storageBucket:'expense-management-pcdepot.firebasestorage.app', messagingSenderId:'748756390310', appId:'1:748756390310:web:e823a9976d4c1ec8bdbf67' };
+      const appName = 'secondary_' + Date.now();
+      const secApp = initApp(fbConfig, appName);
+      const secAuth = getAuth2(secApp);
+      const { user: newUser } = await createUserWithEmailAndPassword(secAuth, email, password);
+      await signOut2(secAuth);
+      await deleteApp(secApp);
+      await setDoc(doc(db, 'users', newUser.uid), { uid:newUser.uid, email, displayName, role:createRole, status:'active', createdAt:Timestamp.now(), updatedAt:Timestamp.now() });
+      setGeneratedPassword(password);
+      loadData();
+    } catch (e: any) {
+      console.error(e);
+      if (e.code === 'auth/email-already-in-use') alert('このメールアドレスはFirebase Authに既に存在します。Firebaseコンソールからパスワードリセットしてください。');
+      else alert('アカウント作成に失敗しました: ' + e.message);
+    }
     keepPageRef.current = currentPage;
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      const rows = lines.slice(1).map(line => {
+        const parts = line.split(',').map((s:string) => s.trim());
+        return { displayName: parts[0]||'', email: parts[1]||'', role: parts[2]||'user' };
+      }).filter((r: {displayName:string,email:string,role:string}) => r.email);
+      setCsvPreview(rows); setCsvResults([]);
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleBulkCreate = async () => {
+    if (!csvPreview.length) return;
+    setCsvProcessing(true);
+    const results: {email:string,password:string,status:string}[] = [];
+    const { initializeApp: initApp2, deleteApp: delApp2 } = await import('firebase/app');
+    const { getAuth: getAuth3, createUserWithEmailAndPassword: createUser2, signOut: signOut3 } = await import('firebase/auth');
+    const fbConfig2 = { apiKey:'AIzaSyCK5ua2HWKuJPvTz3k1UeG9_P4J6gV9Q2M', authDomain:'expense-management-pcdepot.firebaseapp.com', projectId:'expense-management-pcdepot', storageBucket:'expense-management-pcdepot.firebasestorage.app', messagingSenderId:'748756390310', appId:'1:748756390310:web:e823a9976d4c1ec8bdbf67' };
+    for (const row of csvPreview) {
+      try {
+        const q2 = query(collection(db,'users'),where('email','==',row.email));
+        const snap2 = await getDocs(q2);
+        for (const d of snap2.docs) { await deleteDoc(doc(db,'users',d.id)); }
+        const pw = generatePassword();
+        const appName2 = 'bulk_' + Date.now();
+        const secApp2 = initApp2(fbConfig2, appName2);
+        const secAuth2 = getAuth3(secApp2);
+        const { user: newU } = await createUser2(secAuth2, row.email, pw);
+        await signOut3(secAuth2);
+        await delApp2(secApp2);
+        await setDoc(doc(db,'users',newU.uid), { uid:newU.uid, email:row.email, displayName:row.displayName, role:row.role||'user', status:'active', createdAt:Timestamp.now(), updatedAt:Timestamp.now() });
+        results.push({email:row.email, password:pw, status:'成功'});
+      } catch(err) {
+        const msg = err instanceof Error ? err.message : '不明なエラー';
+        results.push({email:row.email, password:'', status:'失敗: '+msg});
+      }
+    }
+    setCsvResults(results); setCsvProcessing(false); setCsvPreview([]); loadData();
+  };
+
+  const downloadCsvResults = () => {
+    const header = 'email,password,status';
+    const rows = csvResults.map(r => `${r.email},${r.password},${r.status}`);
+    const blob = new Blob([header+'\n'+rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='initial_passwords.csv'; a.click();
   };
 
   const handleSave = async () => {
@@ -130,6 +213,16 @@ const UserManagement: React.FC = () => {
     if (!window.confirm(`${user.displayName || user.email} を削除しますか？`)) return;
     try { await deleteDoc(doc(db, 'users', user.uid)); alert('ユーザーを削除しました'); loadData(); }
     catch (error) { console.error('削除エラー:', error); alert('削除に失敗しました'); }
+  };
+
+  const handlePasswordReset = async (user: User) => {
+    if (!user.email) { alert('メールアドレスが登録されていません'); return; }
+    if (!window.confirm(`${user.displayName || user.email} にパスワードリセットメールを送信しますか？`)) return;
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, user.email);
+      alert(`パスワードリセットメールを ${user.email} に送信しました`);
+    } catch (error) { console.error(error); alert('メール送信に失敗しました'); }
   };
 
   const handleLogout = async () => {
@@ -192,6 +285,7 @@ const UserManagement: React.FC = () => {
             </div>
             <div style={{ display:'flex', gap:'0.6rem', flexWrap:'wrap' }}>
               <button onClick={() => { setShowCreateModal(true); setInviteUrl(''); setCreateEmail(''); }} style={btnPrimary}>➕ 新規ユーザー登録</button>
+              <button onClick={()=>{ setShowCsvModal(true); setCsvPreview([]); setCsvResults([]); }} style={{ ...btnPrimary, background:'linear-gradient(135deg,#f59e0b,#d97706)' }}>📥 CSV一括登録</button>
               <button onClick={() => navigate('/dashboard')} style={btnNav}>📊 ダッシュボード</button>
               <button onClick={() => navigate('/transactions')} style={btnNav}>📝 取引一覧</button>
               <button onClick={handleLogout} style={{ ...btnNav, color:'#fca5a5', borderColor:'rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.1)' }}>🔓 ログアウト</button>
@@ -259,6 +353,7 @@ const UserManagement: React.FC = () => {
                   <td style={{ padding:'0.8rem 1rem' }}>
                     <div style={{ display:'flex', gap:'6px' }}>
                       {canEdit(user) && <button onClick={() => handleEdit(user)} style={{ padding:'5px 10px', background:'rgba(124,92,191,0.25)', color:'#c4b5fd', border:'1px solid rgba(124,92,191,0.45)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>✏️</button>}
+                      <button onClick={() => handlePasswordReset(user)} style={{ padding:'5px 10px', background:'rgba(251,191,36,0.15)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.3)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>🔑</button>
                       {canDelete(user) && <button onClick={() => handleDelete(user)} style={{ padding:'5px 10px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>🗑️</button>}
                       {!canEdit(user) && !canDelete(user) && <span style={{ color:'rgba(255,255,255,0.25)' }}>-</span>}
                     </div>
@@ -349,12 +444,16 @@ const UserManagement: React.FC = () => {
       {/* 新規作成モーダル */}
       {showCreateModal && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:'1rem' }}>
-          <div style={modalCard}>
-            <h2 style={{ color:'white', fontSize:'1.2rem', fontWeight:'700', marginTop:0, marginBottom:'8px' }}>➕ 新規ユーザー招待</h2>
-            <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'13px', marginBottom:'18px' }}>メールアドレスを入力して招待リンクを発行します（本人がリンクからパスワード設定して有効化）。</p>
+          <div style={{ ...modalCard, width:'90%', maxWidth:'420px' }}>
+            <h2 style={{ color:'white', fontSize:'1.2rem', fontWeight:'700', marginTop:0, marginBottom:'8px' }}>➕ 新規ユーザー登録</h2>
+            <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'13px', marginBottom:'18px' }}>入力するとアカウントを即座に作成します。初期パスワードは自動生成されます。</p>
             <div style={{ marginBottom:'14px' }}>
-              <label style={modalLabelStyle}>メールアドレス</label>
-              <input type="email" value={createEmail} onChange={(e)=>setCreateEmail(e.target.value)} placeholder="user@example.com" style={modalInputStyle} />
+              <label style={modalLabelStyle}>表示名（氏名） *</label>
+              <input type="text" value={createDisplayName} onChange={(e)=>setCreateDisplayName(e.target.value)} placeholder="山田 太郎" style={modalInputStyle} />
+            </div>
+            <div style={{ marginBottom:'14px' }}>
+              <label style={modalLabelStyle}>メールアドレス *</label>
+              <input type="email" value={createEmail} onChange={(e)=>setCreateEmail(e.target.value)} placeholder="user@pcdepot.co.jp" style={modalInputStyle} />
             </div>
             <div style={{ marginBottom:'14px' }}>
               <label style={modalLabelStyle}>役割</label>
@@ -366,17 +465,65 @@ const UserManagement: React.FC = () => {
                 <option value="base_manager" style={{background:'#1e1b3a'}}>経営管理・管理責任者</option>
               </select>
             </div>
-            {inviteUrl && (
-              <div style={{ marginBottom:'14px', padding:'14px', background:'rgba(124,92,191,0.15)', border:'1px solid rgba(124,92,191,0.35)', borderRadius:'10px' }}>
-                <div style={{ color:'rgba(255,255,255,0.7)', fontSize:'13px', fontWeight:'600', marginBottom:'8px' }}>招待リンク</div>
-                <div style={{ color:'#c4b5fd', fontSize:'12px', wordBreak:'break-all', marginBottom:'10px' }}>{inviteUrl}</div>
-                <button onClick={()=>navigator.clipboard.writeText(inviteUrl)} style={{ padding:'6px 14px', background:'rgba(168,85,247,0.3)', color:'#c4b5fd', border:'1px solid rgba(168,85,247,0.5)', borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'600' }}>📋 コピー</button>
+            {generatedPassword && (
+              <div style={{ marginBottom:'14px', padding:'16px', background:'rgba(52,211,153,0.1)', border:'1px solid rgba(52,211,153,0.35)', borderRadius:'10px' }}>
+                <div style={{ color:'#6ee7b7', fontSize:'13px', fontWeight:'700', marginBottom:'8px' }}>✅ アカウント作成完了！</div>
+                <div style={{ color:'rgba(255,255,255,0.6)', fontSize:'12px', marginBottom:'6px' }}>初期パスワード（ユーザーに伝えてください）：</div>
+                <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                  <code style={{ color:'white', fontSize:'16px', fontWeight:'700', letterSpacing:'2px', background:'rgba(0,0,0,0.3)', padding:'8px 14px', borderRadius:'8px', flex:1 }}>{generatedPassword}</code>
+                  <button onClick={()=>{ navigator.clipboard.writeText(generatedPassword); alert('コピーしました'); }} style={{ padding:'8px 14px', background:'rgba(52,211,153,0.3)', color:'#6ee7b7', border:'1px solid rgba(52,211,153,0.5)', borderRadius:'6px', cursor:'pointer', fontSize:'0.82rem', fontWeight:'700' }}>📋 コピー</button>
+                </div>
+                <div style={{ color:'rgba(255,255,255,0.4)', fontSize:'11px', marginTop:'8px' }}>* ユーザーにはログイン後にパスワード変更を依頼してください</div>
               </div>
             )}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:'10px', marginTop:'1.5rem' }}>
-              <button onClick={()=>{ setShowCreateModal(false); setCreateEmail(''); setInviteUrl(''); setCreateRole('user'); }} style={btnNav}>閉じる</button>
-              <button onClick={handleCreateInvite} style={btnPrimary}>📨 招待リンクを発行</button>
+              <button onClick={()=>{ setShowCreateModal(false); setCreateEmail(''); setCreateDisplayName(''); setGeneratedPassword(''); setInviteUrl(''); setCreateRole('user'); }} style={btnNav}>閉じる</button>
+              {!generatedPassword && <button onClick={handleCreateInvite} style={btnPrimary}>➕ アカウント作成</button>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV一括登録モーダル */}
+      {showCsvModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:'1rem' }}>
+          <div style={{ ...modalCard, width:'100%', maxWidth:'560px', maxHeight:'85vh', overflowY:'auto' }}>
+            <h2 style={{ color:'white', fontSize:'1.2rem', fontWeight:'700', marginTop:0, marginBottom:'8px' }}>📥 CSV一括ユーザー登録</h2>
+            <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', marginBottom:'16px' }}>CSV形式: displayName,email,role （1行目はヘッダー）</p>
+            {!csvResults.length && (
+              <div style={{ marginBottom:'16px' }}>
+                <input type='file' accept='.csv' onChange={handleCsvUpload} style={{ color:'rgba(255,255,255,0.8)', marginBottom:'12px', display:'block' }} />
+                {csvPreview.length > 0 && (
+                  <div>
+                    <div style={{ color:'#a78bfa', fontSize:'13px', marginBottom:'8px' }}>プレビュー: {csvPreview.length}件</div>
+                    <div style={{ maxHeight:'200px', overflowY:'auto', background:'rgba(0,0,0,0.3)', borderRadius:'8px', padding:'8px' }}>
+                      {csvPreview.map((r,i) => (
+                        <div key={i} style={{ color:'rgba(255,255,255,0.8)', fontSize:'12px', padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.1)' }}>
+                          {r.displayName} | {r.email} | {r.role}
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={handleBulkCreate} disabled={csvProcessing} style={{ ...btnPrimary, marginTop:'12px', width:'100%', opacity:csvProcessing?0.6:1 }}>
+                      {csvProcessing ? '登録中...' : `✅ ${csvPreview.length}件一括登録開始`}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {csvResults.length > 0 && (
+              <div>
+                <div style={{ color:'#6ee7b7', fontSize:'13px', fontWeight:'700', marginBottom:'8px' }}>登録完了！ 初期パスワード一覧をダウンロードしてください</div>
+                <div style={{ maxHeight:'250px', overflowY:'auto', background:'rgba(0,0,0,0.3)', borderRadius:'8px', padding:'8px', marginBottom:'12px' }}>
+                  {csvResults.map((r,i) => (
+                    <div key={i} style={{ fontSize:'12px', padding:'4px 0', borderBottom:'1px solid rgba(255,255,255,0.1)', color: r.status==='成功'?'#6ee7b7':'#f87171' }}>
+                      {r.email} {r.status==='成功' ? `| PW: ${r.password}` : `| ${r.status}`}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={downloadCsvResults} style={{ ...btnPrimary, background:'linear-gradient(135deg,#10b981,#059669)', width:'100%' }}>📥 初期パスワードCSVダウンロード</button>
+              </div>
+            )}
+            <button onClick={()=>setShowCsvModal(false)} style={{ ...btnNav, marginTop:'16px', width:'100%' }}>閉じる</button>
           </div>
         </div>
       )}

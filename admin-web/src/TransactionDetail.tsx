@@ -2,11 +2,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc, Timestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
-import { db, storage } from './firebase';
+import { db, storage, auth } from './firebase';
+import { getUserInfo } from './utils/userPermissions';
 
 interface Transaction {
   id: string; transactionDate: any; amount: number; merchantName: string;
   categoryId?: string; memo?: string; status: string; receiptCount: number;
+  userId?: string; userName?: string;
 }
 interface Receipt {
   id: string; fileName: string; downloadURL: string; storagePath: string; fileSize: number;
@@ -22,9 +24,15 @@ export default function TransactionDetail() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [userDisplayName, setUserDisplayName] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('user');
 
   useEffect(() => {
     if (id) { loadTransaction(id); loadReceipts(id); }
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      getUserInfo(currentUser.uid).then(info => { if (info) setUserRole(info.role); });
+    }
   }, [id]);
 
   const loadTransaction = async (transactionId: string) => {
@@ -33,7 +41,19 @@ export default function TransactionDetail() {
       const docRef = doc(db, 'transactions', transactionId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setTransaction({ id: docSnap.id, ...docSnap.data() } as Transaction);
+        const txData = { id: docSnap.id, ...docSnap.data() } as Transaction;
+        setTransaction(txData);
+        // 使用者の表示名を取得
+        if (txData.userId) {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', txData.userId));
+            if (userSnap.exists()) {
+              setUserDisplayName(userSnap.data().displayName || userSnap.data().email || txData.userId);
+            } else {
+              setUserDisplayName('⚠️ 未登録ユーザー');
+            }
+          } catch { setUserDisplayName(txData.userName || txData.userId || '-'); }
+        }
       } else {
         alert('取引が見つかりません'); navigate('/transactions');
       }
@@ -137,6 +157,10 @@ export default function TransactionDetail() {
             <label style={labelStyle}>メモ</label>
             <div style={{ ...valueStyle, color:'rgba(255,255,255,0.7)' }}>{transaction.memo || '-'}</div>
           </div>
+          <div style={{ marginBottom:'20px' }}>
+            <label style={labelStyle}>使用者</label>
+            <div style={valueStyle}>{userDisplayName || '-'}</div>
+          </div>
 
           {/* 証憑 */}
           <div style={{ marginBottom:'20px' }}>
@@ -158,11 +182,21 @@ export default function TransactionDetail() {
             )}
           </div>
 
-          {/* 承認・差戻しボタン */}
-          {transaction.status === 'pending' && (
-            <div style={{ display:'flex', gap:'12px', marginTop:'24px' }}>
-              <button onClick={handleApprove} style={{ flex:1, padding:'12px', fontSize:'15px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(79,172,254,0.3)' }}>✅ 承認</button>
-              <button onClick={handleReject} style={{ flex:1, padding:'12px', fontSize:'15px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(250,112,154,0.3)' }}>↩️ 差戻し</button>
+          {/* ステータス変更ボタン（管理者・マネージャーのみ） */}
+          {['admin','block_manager','region_manager','base_manager'].includes(userRole) && (
+            <div style={{ marginTop:'24px' }}>
+              <label style={labelStyle}>ステータス変更</label>
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+                {transaction.status !== 'approved' && (
+                  <button onClick={handleApprove} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(79,172,254,0.3)' }}>✅ 承認</button>
+                )}
+                {transaction.status !== 'rejected' && (
+                  <button onClick={handleReject} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', border:'none', borderRadius:'8px', cursor:'pointer', boxShadow:'0 4px 12px rgba(250,112,154,0.3)' }}>⚠️ 差戻し</button>
+                )}
+                {transaction.status !== 'pending' && (
+                  <button onClick={async () => { if (!id || !window.confirm('未処理に戻しますか？')) return; try { await updateDoc(doc(db, 'transactions', id), { status:'pending', updatedAt: Timestamp.now() }); alert('未処理に戻しました'); loadTransaction(id); } catch(e) { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'rgba(255,255,255,0.7)', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', cursor:'pointer' }}>↩️ 未処理に戻す</button>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -1,7 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc, collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
+import { getUserInfo } from './utils/userPermissions';
 
 interface Category { id: string; name: string; }
 
@@ -16,6 +17,9 @@ export default function TransactionEdit() {
   const [formData, setFormData] = useState({ transactionDate:'', amount:'', merchantName:'', categoryId:'', memo:'' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [userDisplayName, setUserDisplayName] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>('user');
+  const [txStatus, setTxStatus] = useState<string>('pending');
 
   const formatAmount = (value: string) => { const n = value.replace(/[^0-9]/g,''); return n ? Number(n).toLocaleString() : ''; };
   const parseAmount  = (value: string) => value.replace(/,/g,'');
@@ -27,6 +31,10 @@ export default function TransactionEdit() {
       finally { setLoading(false); }
     };
     loadData();
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      getUserInfo(currentUser.uid).then(info => { if (info) setUserRole(info.role); });
+    }
   }, [id]);
 
   const loadCategories = async () => {
@@ -49,6 +57,16 @@ export default function TransactionEdit() {
           amount: data.amount?.toString() || '', merchantName: data.merchantName || '',
           categoryId: data.categoryId || '', memo: data.memo || ''
         });
+        setTxStatus(data.status || 'pending');
+        // 使用者の表示名を取得
+        if (data.userId) {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', data.userId));
+            if (userSnap.exists()) {
+              setUserDisplayName(userSnap.data().displayName || userSnap.data().email || data.userId);
+            } else { setUserDisplayName('⚠️ 未登録ユーザー'); }
+          } catch { setUserDisplayName(data.userName || data.userId || '-'); }
+        }
       } else { alert('取引が見つかりません'); navigate('/transactions'); }
     } catch (error) { console.error('取引の取得に失敗:', error); alert('取引の取得に失敗しました'); }
   };
@@ -89,6 +107,17 @@ export default function TransactionEdit() {
 
         {/* フォームカード */}
         <div style={{ ...card, padding:'2rem' }}>
+          {/* 使用者・ステータス表示 */}
+          <div style={{ display:'flex', gap:'1.5rem', flexWrap:'wrap', marginBottom:'24px', padding:'16px', background:'rgba(255,255,255,0.04)', borderRadius:'10px', border:'1px solid rgba(255,255,255,0.08)' }}>
+            <div>
+              <div style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', fontWeight:'600', marginBottom:'4px' }}>使用者</div>
+              <div style={{ color:'white', fontSize:'15px', fontWeight:'500' }}>{userDisplayName || '-'}</div>
+            </div>
+            <div>
+              <div style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', fontWeight:'600', marginBottom:'4px' }}>ステータス</div>
+              <div>{(() => { const map: Record<string,{bg:string;color:string;text:string}> = { pending:{bg:'rgba(102,126,234,0.15)',color:'#a5b4fc',text:'未処理'}, submitted:{bg:'rgba(240,147,251,0.15)',color:'#f0abfc',text:'申請中'}, rejected:{bg:'rgba(250,112,154,0.15)',color:'#fda4af',text:'差戻し'}, approved:{bg:'rgba(79,172,254,0.15)',color:'#7dd3fc',text:'承認済'} }; const s = map[txStatus]||map.pending; return <span style={{ padding:'4px 14px', borderRadius:'12px', fontSize:'13px', fontWeight:'bold', background:s.bg, color:s.color }}>{s.text}</span>; })()}</div>
+            </div>
+          </div>
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom:'20px' }}>
               <label style={labelStyle}>取引日 <span style={{ color:'#f87171' }}>*</span></label>
@@ -120,6 +149,23 @@ export default function TransactionEdit() {
               {saving ? '更新中...' : '✅ 更新'}
             </button>
           </form>
+          {/* ステータス変更（管理者・マネージャーのみ） */}
+          {['admin','block_manager','region_manager','base_manager'].includes(userRole) && (
+            <div style={{ marginTop:'20px', paddingTop:'20px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', fontWeight:'600', marginBottom:'10px' }}>ステータス変更</div>
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+                {txStatus !== 'approved' && (
+                  <button onClick={async () => { if (!id || !window.confirm('承認しますか？')) return; try { await updateDoc(doc(db, 'transactions', id), { status:'approved', approvedAt:Timestamp.now(), updatedAt:Timestamp.now() }); setTxStatus('approved'); alert('承認しました'); } catch { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', border:'none', borderRadius:'8px', cursor:'pointer' }}>✅ 承認</button>
+                )}
+                {txStatus !== 'rejected' && (
+                  <button onClick={async () => { const comment = window.prompt('差戻し理由：'); if (!id || !comment) return; try { await updateDoc(doc(db, 'transactions', id), { status:'rejected', updatedAt:Timestamp.now() }); setTxStatus('rejected'); alert('差戻しました'); } catch { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'white', background:'linear-gradient(135deg,#fa709a 0%,#fee140 100%)', border:'none', borderRadius:'8px', cursor:'pointer' }}>⚠️ 差戻し</button>
+                )}
+                {txStatus !== 'pending' && (
+                  <button onClick={async () => { if (!id || !window.confirm('未処理に戻しますか？')) return; try { await updateDoc(doc(db, 'transactions', id), { status:'pending', updatedAt:Timestamp.now() }); setTxStatus('pending'); alert('未処理に戻しました'); } catch { alert('更新に失敗しました'); } }} style={{ padding:'10px 20px', fontSize:'14px', fontWeight:'bold', color:'rgba(255,255,255,0.7)', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', cursor:'pointer' }}>↩️ 未処理に戻す</button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

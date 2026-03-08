@@ -217,12 +217,58 @@ const UserManagement: React.FC = () => {
 
   const handlePasswordReset = async (user: User) => {
     if (!user.email) { alert('メールアドレスが登録されていません'); return; }
-    if (!window.confirm(`${user.displayName || user.email} にパスワードリセットメールを送信しますか？`)) return;
+    if (!window.confirm(`${user.displayName || user.email} の新しいパスワードを発行しますか？`)) return;
     try {
-      const { sendPasswordResetEmail } = await import('firebase/auth');
-      await sendPasswordResetEmail(auth, user.email);
-      alert(`パスワードリセットメールを ${user.email} に送信しました`);
-    } catch (error) { console.error(error); alert('メール送信に失敗しました'); }
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+      const newPassword = Array.from({length: 10}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      const { getAuth, updatePassword } = await import('firebase/auth');
+      const { initializeApp, getApps } = await import('firebase/app');
+      const firebaseConfig = {
+        apiKey: "AIzaSyBsEGOFYxdaM2hhBhywGkgCBt6i_Z2Dtqo",
+        authDomain: "expense-management-pcdepot.firebaseapp.com",
+        projectId: "expense-management-pcdepot",
+        storageBucket: "expense-management-pcdepot.firebasestorage.app",
+        messagingSenderId: "215380308540",
+        appId: "1:215380308540:web:8afa8af0e5d5b6c8c97a2e"
+      };
+      const appName = `reset-${Date.now()}`;
+      const { signInWithEmailAndPassword: signIn2 } = await import('firebase/auth');
+      const secondaryApp = initializeApp(firebaseConfig, appName);
+      const secondaryAuth = getAuth(secondaryApp);
+      const currentUser = auth.currentUser;
+      if (!currentUser) { alert('管理者の認証情報が取得できません'); return; }
+      const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
+      const { updatePassword: updatePw } = await import('firebase/auth');
+      const adminEmail = currentUser.email!;
+      const adminPw = window.prompt('管理者パスワードを入力してください（操作確認用）');
+      if (!adminPw) return;
+      const credential = EmailAuthProvider.credential(adminEmail, adminPw);
+      await reauthenticateWithCredential(currentUser, credential);
+      const userCred = await signIn2(secondaryAuth, user.email!, adminPw).catch(() => null);
+      if (!userCred) {
+        alert(`パスワードを発行できませんでした。
+
+代わりに以下の初期パスワードを手動でFirebaseコンソールから設定してください:
+
+${newPassword}`);
+        await navigator.clipboard.writeText(newPassword).catch(()=>{});
+        return;
+      }
+      await updatePw(userCred.user, newPassword);
+      await secondaryAuth.signOut();
+      await navigator.clipboard.writeText(newPassword).catch(()=>{});
+      alert(`✅ 新しいパスワードを発行しました。
+
+👤 ${user.displayName || user.email}
+📧 ${user.email}
+🔑 ${newPassword}
+
+※クリップボードにコピーしました。このパスワードを本人に通知してください。`);
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/wrong-password') { alert('管理者パスワードが正しくありません'); }
+      else { alert('パスワード発行に失敗しました: ' + error.message); }
+    }
   };
 
   const handleLogout = async () => {

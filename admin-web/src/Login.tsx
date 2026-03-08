@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,6 +9,16 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const handlePasswordReset = async () => {
+    if (!email) { alert('メールアドレスを入力してください'); return; }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert('パスワード変更メールを送信しました。メールをご確認ください。');
+    } catch (e) {
+      alert('送信に失敗しました。メールアドレスを確認してください。');
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

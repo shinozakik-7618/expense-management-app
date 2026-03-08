@@ -116,7 +116,7 @@ const Manual: React.FC = () => {
           <h1 style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, #7c5cbf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 4px' }}>
             PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.0 &nbsp;|&nbsp; 全12章</p>
+          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.1 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
         </div>
 
         {/* 本体 */}
@@ -164,7 +164,7 @@ const Manual: React.FC = () => {
                 <tr><td style={td}>管理者 (admin)</td><td style={td}>全機能（ユーザー管理・カード照合含む）</td></tr>
                 <tr><td style={td}>一般ユーザー (user)</td><td style={td}>自分の取引管理・未報告取引・通知</td></tr>
               </tbody></table>
-              <div className="hint-box" style={hint}>ヒント：初めて利用する場合は、管理者から招待メールが届きます。メール内のリンクからアカウントを設定してください。</div>
+              <div className="hint-box" style={hint}>ヒント：初めて利用する場合は、管理者から初期パスワードが通知されます。通知されたパスワードで https://expense-management-pcdepot.web.app にアクセスしてログインしてください。ログイン後にパスワードを変更することを推奨します。</div>
             </div>
 
             <div id="ch2" className="chapter ps" style={card}>
@@ -347,15 +347,46 @@ const Manual: React.FC = () => {
             <div id="ch9" className="chapter ps" style={card}>
               <h2 style={h2s}>第9章 ユーザー管理</h2>
               <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者向けの機能です。社員アカウントの作成・編集・権限設定を行います。</p>
-              <h3 style={h3s}>新規ユーザーの招待</h3>
+              <h3 style={h3s}>新規ユーザーの登録</h3>
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 16px' }}>
                 <li>「ユーザー管理」をクリック</li>
-                <li>「新規招待」ボタンをクリック</li>
-                <li>招待先のメールアドレスと権限を設定</li>
-                <li>「招待メール送信」をクリック</li>
+                <li>「➕ 新規ユーザー登録」ボタンをクリック</li>
+                <li>表示名（氏名）とメールアドレスを入力</li>
+                <li>権限を選択（admin / user）</li>
+                <li>「登録」ボタンをクリック</li>
+                <li>自動生成された初期パスワードが表示される</li>
+                <li>表示されたパスワードをコピーし、本人に通知する</li>
+              </ol>
+              <div className="hint-box" style={hint}>ヒント：初期パスワードは登録時の1回のみ表示されます。必ずコピーして本人に通知してください。通知後、本人にパスワード変更を促すことを推奨します。</div>
+              <h3 style={h3s}>CSV一括登録</h3>
+              <p style={{ lineHeight: '1.8' }}>複数のユーザーを一度に登録する場合はCSV一括登録を使用します。</p>
+              <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 12px' }}>
+                <li>「📥 CSV一括登録」ボタンをクリック</li>
+                <li>以下のフォーマットでCSVファイルを作成して選択する</li>
+              </ol>
+              <table style={tbl}><thead><tr>
+                <th style={th}>列名</th><th style={th}>内容</th><th style={th}>必須</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>displayName</td><td style={td}>氏名（表示名）</td><td style={td}>必須</td></tr>
+                <tr><td style={td}>email</td><td style={td}>メールアドレス</td><td style={td}>必須</td></tr>
+                <tr><td style={td}>role</td><td style={td}>権限（admin または user）</td><td style={td}>必須</td></tr>
+              </tbody></table>
+              <ol start={3} style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '8px 0 16px' }}>
+                <li>プレビューで内容を確認</li>
+                <li>「✅ 一括登録開始」をクリック</li>
+                <li>完了後「📥 初期パスワードCSVダウンロード」で全員分のパスワードを取得</li>
+              </ol>
+              <div className="warn-box" style={warn}>注意：初期パスワードCSVは登録直後のみダウンロード可能です。必ずダウンロードして安全な場所に保管してください。</div>
+              <h3 style={h3s}>パスワードリセット</h3>
+              <p style={{ lineHeight: '1.8' }}>ユーザーがパスワードを忘れた場合、管理者がリセットメールを送信できます。</p>
+              <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 16px' }}>
+                <li>ユーザー一覧で対象ユーザーの行にある「🔑」ボタンをクリック</li>
+                <li>確認ダイアログで「OK」をクリック</li>
+                <li>パスワードリセットメールが自動送信される</li>
+                <li>ユーザーがメール内のリンクから新しいパスワードを設定</li>
               </ol>
               <h3 style={h3s}>権限の変更</h3>
-              <p style={{ lineHeight: '1.8' }}>ユーザー一覧から対象ユーザーを選択し、「編集」から権限（admin / user）を変更できます。</p>
+              <p style={{ lineHeight: '1.8' }}>ユーザー一覧から対象ユーザーの「✏️」ボタンをクリックし、権限（admin / user）を変更できます。</p>
               <div className="warn-box" style={warn}>注意：管理者権限は必要な担当者のみに付与し、定期的に見直してください。</div>
             </div>
 
@@ -384,14 +415,20 @@ const Manual: React.FC = () => {
             <div id="ch11" className="chapter ps" style={card}>
               <h2 style={h2s}>第11章 招待受諾</h2>
               <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>管理者から招待メールを受け取った新規ユーザーのためのガイドです。</p>
-              <h3 style={h3s}>アカウント設定手順</h3>
+              <h3 style={h3s}>初回ログイン手順</h3>
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 12px' }}>
-                <li>招待メールを受信し、メール内の「アカウント設定」リンクをクリック</li>
-                <li>パスワードを設定（8文字以上、英数字混在）</li>
-                <li>「アカウントを作成」ボタンをクリック</li>
-                <li>ログイン画面からメールアドレスと設定したパスワードでログイン</li>
+                <li>管理者から通知された初期パスワードを受け取る</li>
+                <li>ブラウザで <strong style={{ color: '#a855f7' }}>https://expense-management-pcdepot.web.app</strong> にアクセス</li>
+                <li>メールアドレスと初期パスワードを入力してログイン</li>
+                <li>ログイン後、速やかにパスワードを変更することを推奨</li>
               </ol>
-              <div className="hint-box" style={hint}>ヒント：招待リンクの有効期限は24時間です。期限が切れた場合は管理者に再送を依頼してください。</div>
+              <h3 style={h3s}>パスワードを忘れた場合</h3>
+              <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 12px' }}>
+                <li>管理者に「🔑 パスワードリセット」の送信を依頼する</li>
+                <li>届いたリセットメールのリンクをクリック</li>
+                <li>新しいパスワードを設定してログイン</li>
+              </ol>
+              <div className="hint-box" style={hint}>ヒント：パスワードは8文字以上を推奨します。自分でリセットする場合はログイン画面の「パスワードを忘れた方はこちら」からも手続きできます。</div>
             </div>
 
             <div id="ch12" className="chapter ps" style={card}>

@@ -217,57 +217,14 @@ const UserManagement: React.FC = () => {
 
   const handlePasswordReset = async (user: User) => {
     if (!user.email) { alert('メールアドレスが登録されていません'); return; }
-    if (!window.confirm(`${user.displayName || user.email} の新しいパスワードを発行しますか？`)) return;
+    if (!window.confirm(`${user.displayName || user.email} にパスワード変更メールを送信しますか？\n\n送信先: ${user.email}`)) return;
     try {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-      const newPassword = Array.from({length: 10}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-      const { getAuth, updatePassword } = await import('firebase/auth');
-      const { initializeApp, getApps } = await import('firebase/app');
-      const firebaseConfig = {
-        apiKey: "AIzaSyBsEGOFYxdaM2hhBhywGkgCBt6i_Z2Dtqo",
-        authDomain: "expense-management-pcdepot.firebaseapp.com",
-        projectId: "expense-management-pcdepot",
-        storageBucket: "expense-management-pcdepot.firebasestorage.app",
-        messagingSenderId: "215380308540",
-        appId: "1:215380308540:web:8afa8af0e5d5b6c8c97a2e"
-      };
-      const appName = `reset-${Date.now()}`;
-      const { signInWithEmailAndPassword: signIn2 } = await import('firebase/auth');
-      const secondaryApp = initializeApp(firebaseConfig, appName);
-      const secondaryAuth = getAuth(secondaryApp);
-      const currentUser = auth.currentUser;
-      if (!currentUser) { alert('管理者の認証情報が取得できません'); return; }
-      const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
-      const { updatePassword: updatePw } = await import('firebase/auth');
-      const adminEmail = currentUser.email!;
-      const adminPw = window.prompt('管理者パスワードを入力してください（操作確認用）');
-      if (!adminPw) return;
-      const credential = EmailAuthProvider.credential(adminEmail, adminPw);
-      await reauthenticateWithCredential(currentUser, credential);
-      const userCred = await signIn2(secondaryAuth, user.email!, adminPw).catch(() => null);
-      if (!userCred) {
-        alert(`パスワードを発行できませんでした。
-
-代わりに以下の初期パスワードを手動でFirebaseコンソールから設定してください:
-
-${newPassword}`);
-        await navigator.clipboard.writeText(newPassword).catch(()=>{});
-        return;
-      }
-      await updatePw(userCred.user, newPassword);
-      await secondaryAuth.signOut();
-      await navigator.clipboard.writeText(newPassword).catch(()=>{});
-      alert(`✅ 新しいパスワードを発行しました。
-
-👤 ${user.displayName || user.email}
-📧 ${user.email}
-🔑 ${newPassword}
-
-※クリップボードにコピーしました。このパスワードを本人に通知してください。`);
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      await sendPasswordResetEmail(auth, user.email);
+      alert(`✅ パスワード変更メールを送信しました。\n\n👤 ${user.displayName || user.email}\n📧 ${user.email}\n\nユーザーにメールを確認するよう伝えてください。`);
     } catch (error: any) {
       console.error(error);
-      if (error.code === 'auth/wrong-password') { alert('管理者パスワードが正しくありません'); }
-      else { alert('パスワード発行に失敗しました: ' + error.message); }
+      alert('メール送信に失敗しました: ' + error.message);
     }
   };
 
@@ -399,7 +356,7 @@ ${newPassword}`);
                   <td style={{ padding:'0.8rem 1rem' }}>
                     <div style={{ display:'flex', gap:'6px' }}>
                       {canEdit(user) && <button onClick={() => handleEdit(user)} style={{ padding:'5px 10px', background:'rgba(124,92,191,0.25)', color:'#c4b5fd', border:'1px solid rgba(124,92,191,0.45)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>✏️</button>}
-                      <button onClick={() => handlePasswordReset(user)} style={{ padding:'5px 10px', background:'rgba(251,191,36,0.15)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.3)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>🔑</button>
+                      {currentUser?.role === 'admin' && <button onClick={() => handlePasswordReset(user)} style={{ padding:'5px 10px', background:'rgba(251,191,36,0.15)', color:'#fbbf24', border:'1px solid rgba(251,191,36,0.3)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }} title="初期パスワード発行">🔑</button>}
                       {canDelete(user) && <button onClick={() => handleDelete(user)} style={{ padding:'5px 10px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'6px', cursor:'pointer', fontSize:'0.8rem' }}>🗑️</button>}
                       {!canEdit(user) && !canDelete(user) && <span style={{ color:'rgba(255,255,255,0.25)' }}>-</span>}
                     </div>

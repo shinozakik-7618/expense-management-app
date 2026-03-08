@@ -116,7 +116,7 @@ const Manual: React.FC = () => {
           <h1 style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, #7c5cbf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 4px' }}>
             PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.1 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
+          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.2 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
         </div>
 
         {/* 本体 */}
@@ -382,9 +382,10 @@ const Manual: React.FC = () => {
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 16px' }}>
                 <li>ユーザー一覧で対象ユーザーの行にある「🔑」ボタンをクリック</li>
                 <li>確認ダイアログで「OK」をクリック</li>
-                <li>パスワードリセットメールが自動送信される</li>
-                <li>ユーザーがメール内のリンクから新しいパスワードを設定</li>
+                <li>「PC DEPOT 法人カード管理システム」からパスワード変更メールが自動送信される</li>
+                <li>ユーザーがメール内のリンクから新しいパスワードを設定してログイン</li>
               </ol>
+              <div className="warn-box" style={warn}>注意：メールが迷惑メールフォルダに振り分けられる場合があります。届かない場合は迷惑メールフォルダを確認するよう案内してください。</div>
               <h3 style={h3s}>権限の変更</h3>
               <p style={{ lineHeight: '1.8' }}>ユーザー一覧から対象ユーザーの「✏️」ボタンをクリックし、権限（admin / user）を変更できます。</p>
               <div className="warn-box" style={warn}>注意：管理者権限は必要な担当者のみに付与し、定期的に見直してください。</div>
@@ -425,10 +426,12 @@ const Manual: React.FC = () => {
               <h3 style={h3s}>パスワードを忘れた場合</h3>
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: '0 0 12px' }}>
                 <li>管理者に「🔑 パスワードリセット」の送信を依頼する</li>
-                <li>届いたリセットメールのリンクをクリック</li>
-                <li>新しいパスワードを設定してログイン</li>
+                <li>「PC DEPOT 法人カード管理システム」からメールが届く</li>
+                <li>迷惑メールフォルダも確認する</li>
+                <li>メール内のリンクをクリックして新しいパスワードを設定</li>
+                <li>新しいパスワードでログイン</li>
               </ol>
-              <div className="hint-box" style={hint}>ヒント：パスワードは8文字以上を推奨します。自分でリセットする場合はログイン画面の「パスワードを忘れた方はこちら」からも手続きできます。</div>
+              <div className="hint-box" style={hint}>ヒント：パスワードは8文字以上を推奨します。ログイン画面の「パスワードの変更はこちら」からも自分でリセットできます。</div>
             </div>
 
             <div id="ch12" className="chapter ps" style={card}>

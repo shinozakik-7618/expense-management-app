@@ -116,7 +116,7 @@ const Manual: React.FC = () => {
           <h1 style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, #7c5cbf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 4px' }}>
             PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.2 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
+          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.3 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
         </div>
 
         {/* 本体 */}
@@ -159,10 +159,13 @@ const Manual: React.FC = () => {
               </tbody></table>
               <h3 style={h3s}>権限一覧</h3>
               <table style={tbl}><thead><tr>
-                <th style={th}>権限</th><th style={th}>利用可能機能</th>
+                <th style={th}>役割</th><th style={th}>表示名</th><th style={th}>ユーザー編集</th><th style={th}>ユーザー削除</th><th style={th}>🔑パスワード発行</th><th style={th}>新規登録</th><th style={th}>取引閲覧範囲</th>
               </tr></thead><tbody>
-                <tr><td style={td}>管理者 (admin)</td><td style={td}>全機能（ユーザー管理・カード照合含む）</td></tr>
-                <tr><td style={td}>一般ユーザー (user)</td><td style={td}>自分の取引管理・未報告取引・通知</td></tr>
+                <tr><td style={td}>admin</td><td style={td}>管理者</td><td style={td}>✅ 全員</td><td style={td}>✅ 全員</td><td style={td}>✅</td><td style={td}>✅</td><td style={td}>全員の取引</td></tr>
+                <tr><td style={td}>block_manager</td><td style={td}>ブロック・部署長</td><td style={td}>✅ 自分のみ</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>自分のブロック内全取引</td></tr>
+                <tr><td style={td}>region_manager</td><td style={td}>地域代表</td><td style={td}>✅ 自分のみ</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>自分の地域内全取引</td></tr>
+                <tr><td style={td}>base_manager</td><td style={td}>経営管理・管理責任者</td><td style={td}>✅ 自分のみ</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>自分の地域内全取引</td></tr>
+                <tr><td style={td}>user</td><td style={td}>一般ユーザー</td><td style={td}>✅ 自分のみ</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>❌</td><td style={td}>自分の取引のみ</td></tr>
               </tbody></table>
               <div className="hint-box" style={hint}>ヒント：初めて利用する場合は、管理者から初期パスワードが通知されます。通知されたパスワードで https://expense-management-pcdepot.web.app にアクセスしてログインしてください。ログイン後にパスワードを変更することを推奨します。</div>
             </div>

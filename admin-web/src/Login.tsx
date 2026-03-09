@@ -222,6 +222,19 @@ export default function Login() {
             {loading ? 'ログイン中...' : 'ログイン →'}
           </button>
 
+          {/* パスワード変更リンク */}
+          <div style={{ textAlign: 'center', marginTop: '1.2rem' }}>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'rgba(168,85,247,0.8)', fontSize: '0.85rem',
+                textDecoration: 'underline', padding: 0,
+              }}
+            >パスワードの変更はこちら</button>
+          </div>
+
         </form>
       </div>
 

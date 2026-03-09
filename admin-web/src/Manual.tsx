@@ -179,7 +179,7 @@ const Manual: React.FC = () => {
                 <li>「ログイン」ボタンをクリック</li>
                 <li>ダッシュボードが表示されたらログイン完了</li>
               </ol>
-              <div className="warn-box" style={warn}>注意：パスワードを忘れた場合は「パスワードを忘れた方はこちら」リンクからリセットメールを送信してください。</div>
+              <div className="warn-box" style={warn}>注意：パスワードを変更したい場合はログイン画面の「パスワードの変更はこちら」リンクからリセットメールを送信してください。</div>
               <h3 style={h3s}>ログアウト手順</h3>
               <ol style={{ lineHeight: '2.0', paddingLeft: '20px', margin: 0 }}>
                 <li>ダッシュボード右上の「ログアウト」ボタンをクリック</li>

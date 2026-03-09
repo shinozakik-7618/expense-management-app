@@ -218,7 +218,19 @@ export default function TransactionList() {
     }
   };
 
-  const handleDelete = async (transactionId: string) => {
+  const handleDelete = async (transactionId: string, status: string, userId: string) => {
+    const isAdmin = userRole === 'admin';
+    const isOwner = auth.currentUser?.uid === userId;
+    const isPending = status === 'pending';
+
+    if (!isAdmin && !isPending) {
+      alert('未処理以外の取引は管理者のみ削除できます');
+      return;
+    }
+    if (!isAdmin && !isOwner) {
+      alert('他のユーザーの取引は削除できません');
+      return;
+    }
     if (!confirm('この取引を削除しますか？')) return;
     try { await deleteDoc(doc(db, 'transactions', transactionId)); alert('削除しました'); }
     catch (error) { console.error('削除エラー:', error); alert('削除に失敗しました'); }
@@ -390,7 +402,9 @@ export default function TransactionList() {
                         <div style={{ display:'flex', gap:'0.4rem', justifyContent:'center' }}>
                           <button onClick={() => navigate(`/transactions/${tx.id}`)} style={{ padding:'6px 12px', background:'rgba(124,92,191,0.3)', color:'#c4b5fd', border:'1px solid rgba(124,92,191,0.5)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>👁️ 詳細</button>
                           <button onClick={() => navigate(`/transactions/${tx.id}/edit`)} style={{ padding:'6px 12px', background:'rgba(240,147,251,0.2)', color:'#f0abfc', border:'1px solid rgba(240,147,251,0.4)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>✏️ 編集</button>
-                          <button onClick={() => handleDelete(tx.id)} style={{ padding:'6px 12px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>🗑️ 削除</button>
+                          {(userRole === 'admin' || (auth.currentUser?.uid === tx.userId && tx.status === 'pending')) && (
+                            <button onClick={() => handleDelete(tx.id, tx.status, tx.userId || '')} style={{ padding:'6px 12px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>🗑️ 削除</button>
+                          )}
                         </div>
                       </td>
                     </tr>

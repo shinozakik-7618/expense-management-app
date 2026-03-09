@@ -116,7 +116,7 @@ const Manual: React.FC = () => {
           <h1 style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, #7c5cbf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 4px' }}>
             PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.3 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
+          <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.4 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
         </div>
 
         {/* 本体 */}
@@ -257,7 +257,14 @@ const Manual: React.FC = () => {
               </ol>
               <div className="hint-box" style={hint}>ヒント：領収書のOCR自動認識はAIが店舗名・金額・取引日を読み取ります。認識精度は領収書の状態により異なりますので、必ず内容を確認してから保存してください。</div>
               <h3 style={h3s}>取引の編集・削除</h3>
-              <p style={{ lineHeight: '1.8' }}>取引一覧から対象行をクリックして詳細画面を開き、「編集」または「削除」ボタンを操作します。</p>
+              <p style={{ lineHeight: '1.8' }}>取引一覧から対象行の「✏️ 編集」「🗑️ 削除」ボタンを操作します。ボタンの表示はステータスと権限により異なります。</p>
+              <table style={tbl}><thead><tr>
+                <th style={th}>ステータス</th><th style={th}>✏️ 編集ボタン</th><th style={th}>🗑️ 削除ボタン</th>
+              </tr></thead><tbody>
+                <tr><td style={td}>未処理</td><td style={td}>✅ 本人・管理者</td><td style={td}>✅ 本人・管理者</td></tr>
+                <tr><td style={td}>承認済</td><td style={td}>✅ 管理者のみ</td><td style={td}>✅ 管理者のみ</td></tr>
+                <tr><td style={td}>差し戻し</td><td style={td}>✅ 本人・管理者</td><td style={td}>✅ 管理者のみ</td></tr>
+              </tbody></table>
               <div className="warn-box" style={warn}>注意：削除した取引は復元できません。誤操作に注意してください。</div>
               <h3 style={h3s}>取引詳細画面</h3>
               <p style={{ lineHeight: '1.8' }}>取引一覧の「👁️ 詳細」ボタンから開きます。以下の情報が確認できます。</p>

@@ -401,7 +401,9 @@ export default function TransactionList() {
                       <td style={{ padding:'0.9rem 1rem', textAlign:'center' }}>
                         <div style={{ display:'flex', gap:'0.4rem', justifyContent:'center' }}>
                           <button onClick={() => navigate(`/transactions/${tx.id}`)} style={{ padding:'6px 12px', background:'rgba(124,92,191,0.3)', color:'#c4b5fd', border:'1px solid rgba(124,92,191,0.5)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>👁️ 詳細</button>
+                          {(userRole === 'admin' || tx.status !== 'approved') && (
                           <button onClick={() => navigate(`/transactions/${tx.id}/edit`)} style={{ padding:'6px 12px', background:'rgba(240,147,251,0.2)', color:'#f0abfc', border:'1px solid rgba(240,147,251,0.4)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>✏️ 編集</button>
+                          )}
                           {(userRole === 'admin' || (auth.currentUser?.uid === tx.userId && tx.status === 'pending')) && (
                             <button onClick={() => handleDelete(tx.id, tx.status, tx.userId || '')} style={{ padding:'6px 12px', background:'rgba(239,68,68,0.15)', color:'#fca5a5', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'6px', cursor:'pointer', fontWeight:'600', fontSize:'0.8rem' }}>🗑️ 削除</button>
                           )}

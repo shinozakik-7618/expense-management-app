@@ -71,7 +71,7 @@ export default function Login() {
           margin: '0 0 0.4rem 0',
           letterSpacing: '0.02em',
         }}>
-          法人カード経費管理システム
+          法人カード使用管理アプリ
         </h1>
         <p style={{
           color: 'rgba(255,255,255,0.5)',

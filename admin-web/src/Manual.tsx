@@ -114,7 +114,7 @@ const Manual: React.FC = () => {
         {/* タイトル */}
         <div className="ps" style={card}>
           <h1 style={{ fontSize: '22px', fontWeight: '700', background: 'linear-gradient(135deg, #7c5cbf, #a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: '0 0 4px' }}>
-            PC DEPOT Corp. 法人カード経費管理システム ユーザーマニュアル
+            PC DEPOT Corp. 法人カード使用管理アプリ ユーザーマニュアル
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>v1.4 &nbsp;|&nbsp; 全12章 &nbsp;|&nbsp; 2026年3月更新</p>
         </div>
@@ -143,7 +143,7 @@ const Manual: React.FC = () => {
 
             <div id="ch1" className="chapter ps" style={card}>
               <h2 style={h2s}>第1章 システム概要</h2>
-              <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>PC DEPOT Corp. 法人カード経費管理システムは、役員・社員が利用する法人クレジットカードの取引を一元管理し、経費精算業務を効率化するためのWebアプリケーションです。</p>
+              <p style={{ lineHeight: '1.8', marginBottom: '16px' }}>PC DEPOT Corp. 法人カード使用管理アプリは、役員・社員が利用する法人クレジットカードの取引を一元管理し、経費精算業務を効率化するためのWebアプリケーションです。</p>
               <h3 style={h3s}>主な機能</h3>
               <table style={tbl}><thead><tr>
                 <th style={th}>機能</th><th style={th}>説明</th>

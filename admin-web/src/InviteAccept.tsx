@@ -80,7 +80,7 @@ export default function InviteAccept() {
       {/* ロゴ */}
       <div style={{ textAlign:'center', marginBottom:'2rem' }}>
         <div style={{ width:'64px', height:'64px', borderRadius:'18px', background:'linear-gradient(135deg,#7c5cbf 0%,#a855f7 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'30px', margin:'0 auto 1rem auto', boxShadow:'0 8px 24px rgba(168,85,247,0.4)' }}>💳</div>
-        <h1 style={{ color:'white', fontSize:'1.5rem', fontWeight:'700', margin:'0 0 4px 0' }}>法人カード経費管理システム</h1>
+        <h1 style={{ color:'white', fontSize:'1.5rem', fontWeight:'700', margin:'0 0 4px 0' }}>法人カード使用管理アプリ</h1>
         <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.85rem', margin:0 }}>PC DEPOT Corp.</p>
       </div>
 
